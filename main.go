@@ -23,7 +23,7 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("gh-project-promoter")
 		fmt.Println("Usage: gh-project-promoter <command>")
-		fmt.Println("Commands: fetch")
+		fmt.Println("Commands: fetch, promote")
 		return
 	}
 
@@ -36,6 +36,17 @@ func main() {
 		}
 		client := github.NewClient(cfg.Token)
 		if err := cmd.RunFetch(context.Background(), cfg, client); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+	case "promote":
+		cfg, err := config.Load()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		client := github.NewClient(cfg.Token)
+		if err := cmd.RunPromote(context.Background(), cfg, client); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}

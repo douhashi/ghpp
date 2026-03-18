@@ -277,6 +277,169 @@ func TestFetchProjectItems_OrgFallback(t *testing.T) {
 	}
 }
 
+func TestFetchProjectMeta_User(t *testing.T) {
+	resp := graphqlResponse{
+		Data: map[string]interface{}{
+			"user": map[string]interface{}{
+				"projectV2": map[string]interface{}{
+					"id": "PVT_001",
+					"field": map[string]interface{}{
+						"__typename": "ProjectV2SingleSelectField",
+						"id":         "PVTSSF_001",
+						"options": []interface{}{
+							map[string]interface{}{"id": "opt1", "name": "Backlog"},
+							map[string]interface{}{"id": "opt2", "name": "Ready"},
+							map[string]interface{}{"id": "opt3", "name": "In progress"},
+							map[string]interface{}{"id": "opt4", "name": "Done"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := &Client{inner: newTestGitHubV4Client(srv.URL, srv.Client())}
+
+	meta, err := client.FetchProjectMeta(context.Background(), "testuser", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if meta.ProjectID != "PVT_001" {
+		t.Errorf("ProjectID = %q, want %q", meta.ProjectID, "PVT_001")
+	}
+	if meta.FieldID != "PVTSSF_001" {
+		t.Errorf("FieldID = %q, want %q", meta.FieldID, "PVTSSF_001")
+	}
+	if len(meta.Options) != 4 {
+		t.Fatalf("expected 4 options, got %d", len(meta.Options))
+	}
+	if meta.Options["Backlog"] != "opt1" {
+		t.Errorf("Options[Backlog] = %q, want %q", meta.Options["Backlog"], "opt1")
+	}
+	if meta.Options["Ready"] != "opt2" {
+		t.Errorf("Options[Ready] = %q, want %q", meta.Options["Ready"], "opt2")
+	}
+}
+
+func TestFetchProjectMeta_OrgFallback(t *testing.T) {
+	var callCount atomic.Int32
+
+	userErrResp := graphqlResponse{
+		Errors: []struct {
+			Message string `json:"message"`
+		}{{Message: "Could not resolve to a User"}},
+	}
+
+	orgResp := graphqlResponse{
+		Data: map[string]interface{}{
+			"organization": map[string]interface{}{
+				"projectV2": map[string]interface{}{
+					"id": "PVT_ORG1",
+					"field": map[string]interface{}{
+						"__typename": "ProjectV2SingleSelectField",
+						"id":         "PVTSSF_ORG1",
+						"options": []interface{}{
+							map[string]interface{}{"id": "orgopt1", "name": "Todo"},
+							map[string]interface{}{"id": "orgopt2", "name": "Done"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		n := callCount.Add(1)
+		if n == 1 {
+			if err := json.NewEncoder(w).Encode(userErrResp); err != nil {
+				t.Errorf("failed to encode response: %v", err)
+			}
+		} else {
+			if err := json.NewEncoder(w).Encode(orgResp); err != nil {
+				t.Errorf("failed to encode response: %v", err)
+			}
+		}
+	}))
+	defer srv.Close()
+
+	client := &Client{inner: newTestGitHubV4Client(srv.URL, srv.Client())}
+
+	meta, err := client.FetchProjectMeta(context.Background(), "my-org", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if meta.ProjectID != "PVT_ORG1" {
+		t.Errorf("ProjectID = %q, want %q", meta.ProjectID, "PVT_ORG1")
+	}
+	if meta.Options["Todo"] != "orgopt1" {
+		t.Errorf("Options[Todo] = %q, want %q", meta.Options["Todo"], "orgopt1")
+	}
+}
+
+func TestUpdateItemStatus(t *testing.T) {
+	resp := graphqlResponse{
+		Data: map[string]interface{}{
+			"updateProjectV2ItemFieldValue": map[string]interface{}{
+				"projectV2Item": map[string]interface{}{
+					"id": "PVTI_001",
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := &Client{inner: newTestGitHubV4Client(srv.URL, srv.Client())}
+
+	meta := &ProjectMeta{
+		ProjectID: "PVT_001",
+		FieldID:   "PVTSSF_001",
+		Options:   map[string]string{"Ready": "opt2", "In progress": "opt3"},
+	}
+
+	err := client.UpdateItemStatus(context.Background(), meta, "PVTI_001", "Ready")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdateItemStatus_InvalidStatus(t *testing.T) {
+	client := &Client{inner: nil} // inner not needed since we error before API call
+
+	meta := &ProjectMeta{
+		ProjectID: "PVT_001",
+		FieldID:   "PVTSSF_001",
+		Options:   map[string]string{"Ready": "opt2"},
+	}
+
+	err := client.UpdateItemStatus(context.Background(), meta, "PVTI_001", "NonExistent")
+	if err == nil {
+		t.Fatal("expected error but got nil")
+	}
+
+	want := `unknown status "NonExistent": not found in project options`
+	if err.Error() != want {
+		t.Errorf("error = %q, want %q", err.Error(), want)
+	}
+}
+
 // newTestGitHubV4Client creates a githubv4.Client pointing at a test server.
 func newTestGitHubV4Client(url string, httpClient *http.Client) *githubv4.Client {
 	return githubv4.NewEnterpriseClient(url+"/graphql", httpClient)
