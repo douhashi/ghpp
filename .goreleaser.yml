@@ -1,9 +1,11 @@
 version: 2
 
+project_name: ghpp
+
 builds:
-  - id: gh-project-promoter
+  - id: ghpp
     main: .
-    binary: gh-project-promoter
+    binary: ghpp
     env:
       - CGO_ENABLED=0
     goos:

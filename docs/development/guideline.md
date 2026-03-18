@@ -29,8 +29,8 @@
 ## ビルド・実行
 
 ```bash
-go build -o gh-project-promoter .
-./gh-project-promoter
+go build -o ghpp .
+./ghpp
 ```
 
 ## リリース

@@ -21,8 +21,8 @@ func main() {
 	}
 
 	if len(os.Args) < 2 {
-		fmt.Println("gh-project-promoter")
-		fmt.Println("Usage: gh-project-promoter <command>")
+		fmt.Println("ghpp - GitHub Project Promoter")
+		fmt.Println("Usage: ghpp <command>")
 		fmt.Println("Commands: fetch, promote")
 		return
 	}
