@@ -8,7 +8,7 @@
 
 | 用途 | ライブラリ |
 |---|---|
-| GitHub API クライアント | [go-github](https://github.com/google/go-github) |
+| GitHub GraphQL API | [githubv4](https://github.com/shurcooL/githubv4) |
 | 環境変数 (.env) | [godotenv](https://github.com/joho/godotenv) |
 
 ## ディレクトリ構成（予定）
