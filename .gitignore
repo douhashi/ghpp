@@ -7,6 +7,9 @@ gh-project-promoter
 # Temp
 .tmp/
 
+# GoReleaser
+dist/
+
 # Go
 *.exe
 *.test

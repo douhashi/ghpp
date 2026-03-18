@@ -32,3 +32,25 @@
 go build -o gh-project-promoter .
 ./gh-project-promoter
 ```
+
+## リリース
+
+GoReleaser を使用してリリースする。
+
+### ローカルでのテストビルド
+
+```bash
+goreleaser release --snapshot --clean
+```
+
+### リリース手順
+
+1. バージョンタグを作成する: `git tag -a v1.0.0 -m "Release v1.0.0"`
+2. タグをプッシュする: `git push origin v1.0.0`
+3. GitHub Actions が自動的に GoReleaser を実行し、GitHub Releases にバイナリがアップロードされる
+
+### 設定ファイルの検証
+
+```bash
+goreleaser check
+```
