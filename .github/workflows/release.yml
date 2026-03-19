@@ -30,3 +30,14 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete old releases (keep last 5)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' \
+            | tail -n +6 \
+            | while read -r tag; do
+                echo "Deleting release and tag: $tag"
+                gh release delete "$tag" --yes --cleanup-tag
+              done
