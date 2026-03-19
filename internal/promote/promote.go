@@ -10,8 +10,8 @@ import (
 	"github.com/douhashi/gh-project-promoter/internal/github"
 )
 
-// Run executes both promotion phases and returns all results.
-func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, promoter github.ItemPromoter) ([]github.PromoteResult, error) {
+// Run executes both promotion phases and returns a structured response.
+func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, promoter github.ItemPromoter) (*github.PromoteResponse, error) {
 	meta, err := promoter.FetchProjectMeta(ctx, cfg.Owner, cfg.ProjectNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch project meta: %w", err)
@@ -27,7 +27,46 @@ func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, pr
 		return nil, fmt.Errorf("doing phase failed: %w", err)
 	}
 
-	return append(planResults, doingResults...), nil
+	planPhaseResult := buildPhaseResult(planResults)
+	doingPhaseResult := buildPhaseResult(doingResults)
+
+	return &github.PromoteResponse{
+		Summary: github.PhaseSummary{
+			Promoted: planPhaseResult.Summary.Promoted + doingPhaseResult.Summary.Promoted,
+			Skipped:  planPhaseResult.Summary.Skipped + doingPhaseResult.Summary.Skipped,
+			Total:    planPhaseResult.Summary.Total + doingPhaseResult.Summary.Total,
+		},
+		Phases: github.PromotePhases{
+			Plan:  planPhaseResult,
+			Doing: doingPhaseResult,
+		},
+	}, nil
+}
+
+// buildPhaseResult creates a PhaseResult from a slice of PromoteResult,
+// ensuring the results slice is never nil.
+func buildPhaseResult(results []github.PromoteResult) github.PhaseResult {
+	if results == nil {
+		results = make([]github.PromoteResult, 0)
+	}
+	promoted := 0
+	skipped := 0
+	for _, r := range results {
+		switch r.Action {
+		case "promoted":
+			promoted++
+		case "skipped":
+			skipped++
+		}
+	}
+	return github.PhaseResult{
+		Summary: github.PhaseSummary{
+			Promoted: promoted,
+			Skipped:  skipped,
+			Total:    len(results),
+		},
+		Results: results,
+	}
 }
 
 func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, promoter github.ItemPromoter) ([]github.PromoteResult, error) {

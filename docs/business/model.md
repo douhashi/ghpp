@@ -34,3 +34,46 @@ Issue を `ready` から `doing` ステータスに昇格させる。
 - **リポジトリ単位で1つまで**: `doing` に昇格できるのは、各リポジトリにつき1つの Issue のみ
 - すでに同リポジトリの Issue が `doing` にある場合、昇格しない
 - リポジトリの判定は Issue URL から `owner/repository` を抽出して行う
+
+## 出力フォーマット
+
+Promote コマンドはフェーズ別サマリ付き JSON を出力する。
+
+```json
+{
+  "summary": {
+    "promoted": 4,
+    "skipped": 2,
+    "total": 6
+  },
+  "phases": {
+    "plan": {
+      "summary": {
+        "promoted": 3,
+        "skipped": 1,
+        "total": 4
+      },
+      "results": [
+        {
+          "item": { "id": "...", "title": "...", "url": "...", "status": "..." },
+          "action": "promoted",
+          "to_status": "Plan"
+        }
+      ]
+    },
+    "doing": {
+      "summary": {
+        "promoted": 1,
+        "skipped": 1,
+        "total": 2
+      },
+      "results": [...]
+    }
+  }
+}
+```
+
+- トップレベルの `summary` は全フェーズの合計値
+- `phases.plan` / `phases.doing` は常にキーが存在する（0件でも省略されない）
+- 各フェーズの `results` は0件の場合 `[]`（`null` ではない）
+- 各 result の `action` は `"promoted"` または `"skipped"`
