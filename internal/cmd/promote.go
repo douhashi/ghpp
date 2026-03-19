@@ -17,12 +17,12 @@ func RunPromote(ctx context.Context, cfg *config.Config, promoter github.ItemPro
 		return fmt.Errorf("failed to fetch project items: %w", err)
 	}
 
-	results, err := promote.Run(ctx, cfg, items, promoter)
+	resp, err := promote.Run(ctx, cfg, items, promoter)
 	if err != nil {
 		return fmt.Errorf("failed to run promote: %w", err)
 	}
 
-	out, err := json.MarshalIndent(results, "", "  ")
+	out, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal results: %w", err)
 	}

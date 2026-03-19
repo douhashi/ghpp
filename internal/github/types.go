@@ -22,3 +22,29 @@ type PromoteResult struct {
 	Reason   string      `json:"reason,omitempty"`
 	ToStatus string      `json:"to_status,omitempty"`
 }
+
+// PhaseSummary holds counts for a single phase or the overall response.
+type PhaseSummary struct {
+	Promoted int `json:"promoted"`
+	Skipped  int `json:"skipped"`
+	Total    int `json:"total"`
+}
+
+// PhaseResult groups the summary and individual results for one phase.
+type PhaseResult struct {
+	Summary PhaseSummary    `json:"summary"`
+	Results []PromoteResult `json:"results"`
+}
+
+// PromotePhases holds results for each promotion phase as explicit fields
+// so that both keys always appear in JSON output, even when empty.
+type PromotePhases struct {
+	Plan  PhaseResult `json:"plan"`
+	Doing PhaseResult `json:"doing"`
+}
+
+// PromoteResponse is the top-level JSON output of the promote command.
+type PromoteResponse struct {
+	Summary PhaseSummary  `json:"summary"`
+	Phases  PromotePhases `json:"phases"`
+}

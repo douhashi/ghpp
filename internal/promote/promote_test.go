@@ -70,12 +70,13 @@ func TestPlanPhase_InboxToPlan(t *testing.T) {
 		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Done"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
+	planResults := resp.Phases.Plan.Results
+	promoted := filterByAction(planResults, "promoted")
 	if len(promoted) != 1 {
 		t.Fatalf("expected 1 promoted, got %d", len(promoted))
 	}
@@ -84,6 +85,12 @@ func TestPlanPhase_InboxToPlan(t *testing.T) {
 	}
 	if promoted[0].ToStatus != "Plan" {
 		t.Errorf("ToStatus = %q, want %q", promoted[0].ToStatus, "Plan")
+	}
+	if resp.Phases.Plan.Summary.Promoted != 1 {
+		t.Errorf("plan summary promoted = %d, want 1", resp.Phases.Plan.Summary.Promoted)
+	}
+	if resp.Phases.Plan.Summary.Total != 1 {
+		t.Errorf("plan summary total = %d, want 1", resp.Phases.Plan.Summary.Total)
 	}
 }
 
@@ -97,13 +104,14 @@ func TestPlanPhase_PlanLimitExceeded(t *testing.T) {
 		{ID: "3", Title: "Issue 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
-	skipped := filterByAction(results, "skipped")
+	planResults := resp.Phases.Plan.Results
+	promoted := filterByAction(planResults, "promoted")
+	skipped := filterByAction(planResults, "skipped")
 	if len(promoted) != 1 {
 		t.Fatalf("expected 1 promoted, got %d", len(promoted))
 	}
@@ -112,6 +120,15 @@ func TestPlanPhase_PlanLimitExceeded(t *testing.T) {
 	}
 	if skipped[0].Reason != "plan limit reached" {
 		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "plan limit reached")
+	}
+	if resp.Phases.Plan.Summary.Promoted != 1 {
+		t.Errorf("plan summary promoted = %d, want 1", resp.Phases.Plan.Summary.Promoted)
+	}
+	if resp.Phases.Plan.Summary.Skipped != 2 {
+		t.Errorf("plan summary skipped = %d, want 2", resp.Phases.Plan.Summary.Skipped)
+	}
+	if resp.Phases.Plan.Summary.Total != 3 {
+		t.Errorf("plan summary total = %d, want 3", resp.Phases.Plan.Summary.Total)
 	}
 }
 
@@ -122,19 +139,16 @@ func TestPlanPhase_NoInboxItems(t *testing.T) {
 		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Ready"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	planPromoted := 0
-	for _, r := range results {
-		if r.ToStatus == "Plan" {
-			planPromoted++
-		}
+	if resp.Phases.Plan.Summary.Promoted != 0 {
+		t.Errorf("expected 0 plan promotions, got %d", resp.Phases.Plan.Summary.Promoted)
 	}
-	if planPromoted != 0 {
-		t.Errorf("expected 0 plan promotions, got %d", planPromoted)
+	if len(resp.Phases.Plan.Results) != 0 {
+		t.Errorf("expected 0 plan results, got %d", len(resp.Phases.Plan.Results))
 	}
 }
 
@@ -148,14 +162,17 @@ func TestPlanPhase_PlanLimitZeroPromotesAll(t *testing.T) {
 		{ID: "3", Title: "Issue 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
+	promoted := filterByAction(resp.Phases.Plan.Results, "promoted")
 	if len(promoted) != 3 {
 		t.Fatalf("expected 3 promoted, got %d", len(promoted))
+	}
+	if resp.Phases.Plan.Summary.Promoted != 3 {
+		t.Errorf("plan summary promoted = %d, want 3", resp.Phases.Plan.Summary.Promoted)
 	}
 }
 
@@ -166,17 +183,20 @@ func TestDoingPhase_ReadyToDoing(t *testing.T) {
 		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
+	promoted := filterByAction(resp.Phases.Doing.Results, "promoted")
 	if len(promoted) != 1 {
 		t.Fatalf("expected 1 promoted, got %d", len(promoted))
 	}
 	if promoted[0].ToStatus != "In progress" {
 		t.Errorf("ToStatus = %q, want %q", promoted[0].ToStatus, "In progress")
+	}
+	if resp.Phases.Doing.Summary.Promoted != 1 {
+		t.Errorf("doing summary promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
 	}
 }
 
@@ -188,13 +208,13 @@ func TestDoingPhase_SameRepoSecondSkipped(t *testing.T) {
 		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-a/issues/2", Status: "Ready"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
-	skipped := filterByAction(results, "skipped")
+	promoted := filterByAction(resp.Phases.Doing.Results, "promoted")
+	skipped := filterByAction(resp.Phases.Doing.Results, "skipped")
 	if len(promoted) != 1 {
 		t.Fatalf("expected 1 promoted, got %d", len(promoted))
 	}
@@ -203,6 +223,12 @@ func TestDoingPhase_SameRepoSecondSkipped(t *testing.T) {
 	}
 	if skipped[0].Reason != "repository already has doing issue" {
 		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "repository already has doing issue")
+	}
+	if resp.Phases.Doing.Summary.Promoted != 1 {
+		t.Errorf("doing summary promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
+	}
+	if resp.Phases.Doing.Summary.Skipped != 1 {
+		t.Errorf("doing summary skipped = %d, want 1", resp.Phases.Doing.Summary.Skipped)
 	}
 }
 
@@ -214,12 +240,12 @@ func TestDoingPhase_ExistingDoingRepoSkipped(t *testing.T) {
 		{ID: "2", Title: "Ready Issue", URL: "https://github.com/owner/repo-a/issues/2", Status: "Ready"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	skipped := filterByAction(results, "skipped")
+	skipped := filterByAction(resp.Phases.Doing.Results, "skipped")
 	if len(skipped) != 1 {
 		t.Fatalf("expected 1 skipped, got %d", len(skipped))
 	}
@@ -236,14 +262,17 @@ func TestDoingPhase_DifferentReposBothPromoted(t *testing.T) {
 		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Ready"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
+	promoted := filterByAction(resp.Phases.Doing.Results, "promoted")
 	if len(promoted) != 2 {
 		t.Fatalf("expected 2 promoted, got %d", len(promoted))
+	}
+	if resp.Phases.Doing.Summary.Promoted != 2 {
+		t.Errorf("doing summary promoted = %d, want 2", resp.Phases.Doing.Summary.Promoted)
 	}
 }
 
@@ -301,19 +330,29 @@ func TestRun_BothPhasesCombined(t *testing.T) {
 		{ID: "4", Title: "Doing 1", URL: "https://github.com/owner/repo-d/issues/1", Status: "In progress"},
 	}
 
-	results, err := Run(context.Background(), cfg, items, mp)
+	resp, err := Run(context.Background(), cfg, items, mp)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	promoted := filterByAction(results, "promoted")
-	skipped := filterByAction(results, "skipped")
 	// Plan: 1 promoted (limit=1), 1 skipped. Doing: 1 promoted.
-	if len(promoted) != 2 {
-		t.Fatalf("expected 2 promoted, got %d", len(promoted))
+	if resp.Phases.Plan.Summary.Promoted != 1 {
+		t.Errorf("plan promoted = %d, want 1", resp.Phases.Plan.Summary.Promoted)
 	}
-	if len(skipped) != 1 {
-		t.Fatalf("expected 1 skipped, got %d", len(skipped))
+	if resp.Phases.Plan.Summary.Skipped != 1 {
+		t.Errorf("plan skipped = %d, want 1", resp.Phases.Plan.Summary.Skipped)
+	}
+	if resp.Phases.Doing.Summary.Promoted != 1 {
+		t.Errorf("doing promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
+	}
+	if resp.Summary.Promoted != 2 {
+		t.Errorf("total promoted = %d, want 2", resp.Summary.Promoted)
+	}
+	if resp.Summary.Skipped != 1 {
+		t.Errorf("total skipped = %d, want 1", resp.Summary.Skipped)
+	}
+	if resp.Summary.Total != 3 {
+		t.Errorf("total = %d, want 3", resp.Summary.Total)
 	}
 }
 
@@ -342,6 +381,29 @@ func TestRun_FetchMetaError(t *testing.T) {
 	_, err := Run(context.Background(), cfg, nil, mp)
 	if err == nil {
 		t.Fatal("expected error but got nil")
+	}
+}
+
+func TestRun_EmptyItems_ResultsNotNil(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+
+	resp, err := Run(context.Background(), cfg, []github.ProjectItem{}, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Phases.Plan.Results == nil {
+		t.Error("plan results should not be nil")
+	}
+	if resp.Phases.Doing.Results == nil {
+		t.Error("doing results should not be nil")
+	}
+	if len(resp.Phases.Plan.Results) != 0 {
+		t.Errorf("plan results length = %d, want 0", len(resp.Phases.Plan.Results))
+	}
+	if len(resp.Phases.Doing.Results) != 0 {
+		t.Errorf("doing results length = %d, want 0", len(resp.Phases.Doing.Results))
 	}
 }
 
