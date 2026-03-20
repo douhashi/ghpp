@@ -2,10 +2,12 @@ package github
 
 // ProjectItem represents a single item in a GitHub Project.
 type ProjectItem struct {
-	ID     string `json:"id"`
-	Title  string `json:"title"`
-	URL    string `json:"url"`
-	Status string `json:"status"`
+	ID     string   `json:"id"`
+	Title  string   `json:"title"`
+	URL    string   `json:"url"`
+	Status string   `json:"status"`
+	Body   string   `json:"body"`
+	Labels []string `json:"labels"`
 }
 
 // ProjectMeta holds project-level metadata needed for mutations.

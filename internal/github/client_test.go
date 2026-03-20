@@ -52,6 +52,13 @@ func TestFetchProjectItems_User(t *testing.T) {
 									"__typename": "Issue",
 									"title":      "Sample Issue 2",
 									"url":        "https://github.com/douhashi/gh-project-promoter/issues/7",
+									"body":       "Issue 2 body",
+									"labels": map[string]interface{}{
+										"nodes": []interface{}{
+											map[string]interface{}{"name": "bug"},
+											map[string]interface{}{"name": "urgent"},
+										},
+									},
 								},
 							},
 							map[string]interface{}{
@@ -72,6 +79,10 @@ func TestFetchProjectItems_User(t *testing.T) {
 									"__typename": "Issue",
 									"title":      "Sample Issue 1",
 									"url":        "https://github.com/douhashi/gh-project-promoter/issues/6",
+									"body":       "Issue 1 body",
+									"labels": map[string]interface{}{
+										"nodes": []interface{}{},
+									},
 								},
 							},
 						},
@@ -107,9 +118,11 @@ func TestFetchProjectItems_User(t *testing.T) {
 		title  string
 		url    string
 		status string
+		body   string
+		labels []string
 	}{
-		{0, "PVTI_001", "Sample Issue 2", "https://github.com/douhashi/gh-project-promoter/issues/7", "Ready"},
-		{1, "PVTI_002", "Sample Issue 1", "https://github.com/douhashi/gh-project-promoter/issues/6", "Backlog"},
+		{0, "PVTI_001", "Sample Issue 2", "https://github.com/douhashi/gh-project-promoter/issues/7", "Ready", "Issue 2 body", []string{"bug", "urgent"}},
+		{1, "PVTI_002", "Sample Issue 1", "https://github.com/douhashi/gh-project-promoter/issues/6", "Backlog", "Issue 1 body", []string{}},
 	}
 
 	for _, tt := range tests {
@@ -125,6 +138,18 @@ func TestFetchProjectItems_User(t *testing.T) {
 		}
 		if item.Status != tt.status {
 			t.Errorf("items[%d].Status = %q, want %q", tt.idx, item.Status, tt.status)
+		}
+		if item.Body != tt.body {
+			t.Errorf("items[%d].Body = %q, want %q", tt.idx, item.Body, tt.body)
+		}
+		if len(item.Labels) != len(tt.labels) {
+			t.Errorf("items[%d].Labels length = %d, want %d", tt.idx, len(item.Labels), len(tt.labels))
+		} else {
+			for i, l := range item.Labels {
+				if l != tt.labels[i] {
+					t.Errorf("items[%d].Labels[%d] = %q, want %q", tt.idx, i, l, tt.labels[i])
+				}
+			}
 		}
 	}
 }

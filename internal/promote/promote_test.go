@@ -66,8 +66,8 @@ func TestPlanPhase_InboxToPlan(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog"},
-		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Done"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Done", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -101,9 +101,9 @@ func TestPlanPhase_PlanLimitExceeded(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.PlanLimit = 1
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog"},
-		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog"},
-		{ID: "3", Title: "Issue 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+		{ID: "3", Title: "Issue 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -140,7 +140,7 @@ func TestPlanPhase_NoInboxItems(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Ready"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Ready", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -164,9 +164,9 @@ func TestPlanPhase_PlanLimitZeroPromotesAll(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.PlanLimit = 0
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog"},
-		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog"},
-		{ID: "3", Title: "Issue 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+		{ID: "3", Title: "Issue 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -187,7 +187,7 @@ func TestDoingPhase_ReadyToDoing(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -214,8 +214,8 @@ func TestDoingPhase_SameRepoSecondSkipped(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready"},
-		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-a/issues/2", Status: "Ready"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-a/issues/2", Status: "Ready", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -249,8 +249,8 @@ func TestDoingPhase_ExistingDoingRepoSkipped(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Doing Issue", URL: "https://github.com/owner/repo-a/issues/1", Status: "In progress"},
-		{ID: "2", Title: "Ready Issue", URL: "https://github.com/owner/repo-a/issues/2", Status: "Ready"},
+		{ID: "1", Title: "Doing Issue", URL: "https://github.com/owner/repo-a/issues/1", Status: "In progress", Labels: []string{}},
+		{ID: "2", Title: "Ready Issue", URL: "https://github.com/owner/repo-a/issues/2", Status: "Ready", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -271,8 +271,8 @@ func TestDoingPhase_DifferentReposBothPromoted(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready"},
-		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Ready"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Ready", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -386,10 +386,10 @@ func TestRun_BothPhasesCombined(t *testing.T) {
 	cfg := defaultCfg()
 	cfg.PlanLimit = 1
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Inbox 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Backlog"},
-		{ID: "2", Title: "Inbox 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Backlog"},
-		{ID: "3", Title: "Ready 1", URL: "https://github.com/owner/repo-c/issues/1", Status: "Ready"},
-		{ID: "4", Title: "Doing 1", URL: "https://github.com/owner/repo-d/issues/1", Status: "In progress"},
+		{ID: "1", Title: "Inbox 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Inbox 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "3", Title: "Ready 1", URL: "https://github.com/owner/repo-c/issues/1", Status: "Ready", Labels: []string{}},
+		{ID: "4", Title: "Doing 1", URL: "https://github.com/owner/repo-d/issues/1", Status: "In progress", Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, mp)
@@ -425,7 +425,7 @@ func TestRun_APIError(t *testing.T) {
 	}
 	cfg := defaultCfg()
 	items := []github.ProjectItem{
-		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog"},
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
 	}
 
 	_, err := Run(context.Background(), cfg, items, mp)

@@ -89,12 +89,24 @@ type fieldValueNode struct {
 type itemContent struct {
 	TypeName string `graphql:"__typename"`
 	Issue    struct {
-		Title string
-		URL   string `graphql:"url"`
+		Title  string
+		URL    string `graphql:"url"`
+		Body   string
+		Labels struct {
+			Nodes []struct {
+				Name string
+			}
+		} `graphql:"labels(first: 50)"`
 	} `graphql:"... on Issue"`
 	PullRequest struct {
-		Title string
-		URL   string `graphql:"url"`
+		Title  string
+		URL    string `graphql:"url"`
+		Body   string
+		Labels struct {
+			Nodes []struct {
+				Name string
+			}
+		} `graphql:"labels(first: 50)"`
 	} `graphql:"... on PullRequest"`
 }
 
@@ -293,15 +305,26 @@ func (c *Client) UpdateItemStatus(ctx context.Context, meta *ProjectMeta, itemID
 }
 
 func toProjectItem(node itemNode) ProjectItem {
-	item := ProjectItem{ID: node.ID}
+	item := ProjectItem{
+		ID:     node.ID,
+		Labels: make([]string, 0),
+	}
 
 	switch node.Content.TypeName {
 	case "Issue":
 		item.Title = node.Content.Issue.Title
 		item.URL = node.Content.Issue.URL
+		item.Body = node.Content.Issue.Body
+		for _, l := range node.Content.Issue.Labels.Nodes {
+			item.Labels = append(item.Labels, l.Name)
+		}
 	case "PullRequest":
 		item.Title = node.Content.PullRequest.Title
 		item.URL = node.Content.PullRequest.URL
+		item.Body = node.Content.PullRequest.Body
+		for _, l := range node.Content.PullRequest.Labels.Nodes {
+			item.Labels = append(item.Labels, l.Name)
+		}
 	}
 
 	for _, fv := range node.FieldValues.Nodes {
