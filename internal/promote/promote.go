@@ -85,6 +85,7 @@ func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectIt
 
 		results.Promoted = append(results.Promoted, github.PromotedItem{
 			Item:     item,
+			Key:      extractKey(item.URL, "plan"),
 			ToStatus: cfg.StatusPlan,
 		})
 		promoted++
@@ -128,12 +129,26 @@ func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectI
 
 		results.Promoted = append(results.Promoted, github.PromotedItem{
 			Item:     item,
+			Key:      extractKey(item.URL, "doing"),
 			ToStatus: cfg.StatusDoing,
 		})
 		doingRepos[repo] = true
 	}
 
 	return results, nil
+}
+
+// extractKey builds a key string "{phase}-{owner}-{repo}-{number}" from a GitHub URL and phase name.
+func extractKey(rawURL string, phase string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
+	if len(parts) < 4 {
+		return ""
+	}
+	return fmt.Sprintf("%s-%s-%s-%s", phase, parts[0], parts[1], parts[3])
 }
 
 // extractRepo extracts "owner/repo" from a GitHub issue/PR URL.

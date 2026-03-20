@@ -71,6 +71,7 @@ ghpp promote --status-inbox "Todo" --status-plan "Planned"
         "promoted": [
           {
             "item": { "id": "...", "title": "Issue title", "url": "https://...", "status": "Backlog" },
+            "key": "plan-douhashi-ghpp-123",
             "to_status": "Plan"
           }
         ],

@@ -18,6 +18,7 @@ type ProjectMeta struct {
 // PromotedItem represents a single item that was promoted.
 type PromotedItem struct {
 	Item     ProjectItem `json:"item"`
+	Key      string      `json:"key,omitempty"`
 	ToStatus string      `json:"to_status"`
 }
 

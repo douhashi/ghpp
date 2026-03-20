@@ -85,6 +85,9 @@ func TestPlanPhase_InboxToPlan(t *testing.T) {
 	if promoted[0].ToStatus != "Plan" {
 		t.Errorf("ToStatus = %q, want %q", promoted[0].ToStatus, "Plan")
 	}
+	if promoted[0].Key != "plan-owner-repo-1" {
+		t.Errorf("Key = %q, want %q", promoted[0].Key, "plan-owner-repo-1")
+	}
 	if resp.Phases.Plan.Summary.Promoted != 1 {
 		t.Errorf("plan summary promoted = %d, want 1", resp.Phases.Plan.Summary.Promoted)
 	}
@@ -118,6 +121,9 @@ func TestPlanPhase_PlanLimitExceeded(t *testing.T) {
 	}
 	if skipped[0].Reason != "plan limit reached" {
 		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "plan limit reached")
+	}
+	if promoted[0].Key != "plan-owner-repo-1" {
+		t.Errorf("promoted Key = %q, want %q", promoted[0].Key, "plan-owner-repo-1")
 	}
 	if resp.Phases.Plan.Summary.Promoted != 1 {
 		t.Errorf("plan summary promoted = %d, want 1", resp.Phases.Plan.Summary.Promoted)
@@ -196,6 +202,9 @@ func TestDoingPhase_ReadyToDoing(t *testing.T) {
 	if promoted[0].ToStatus != "In progress" {
 		t.Errorf("ToStatus = %q, want %q", promoted[0].ToStatus, "In progress")
 	}
+	if promoted[0].Key != "doing-owner-repo-a-1" {
+		t.Errorf("Key = %q, want %q", promoted[0].Key, "doing-owner-repo-a-1")
+	}
 	if resp.Phases.Doing.Summary.Promoted != 1 {
 		t.Errorf("doing summary promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
 	}
@@ -224,6 +233,9 @@ func TestDoingPhase_SameRepoSecondSkipped(t *testing.T) {
 	}
 	if skipped[0].Reason != "repository already has doing issue" {
 		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "repository already has doing issue")
+	}
+	if promoted[0].Key != "doing-owner-repo-a-1" {
+		t.Errorf("promoted Key = %q, want %q", promoted[0].Key, "doing-owner-repo-a-1")
 	}
 	if resp.Phases.Doing.Summary.Promoted != 1 {
 		t.Errorf("doing summary promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
@@ -274,6 +286,55 @@ func TestDoingPhase_DifferentReposBothPromoted(t *testing.T) {
 	}
 	if resp.Phases.Doing.Summary.Promoted != 2 {
 		t.Errorf("doing summary promoted = %d, want 2", resp.Phases.Doing.Summary.Promoted)
+	}
+}
+
+func TestExtractKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		url   string
+		phase string
+		want  string
+	}{
+		{
+			name:  "issue URL with plan phase",
+			url:   "https://github.com/owner/repo/issues/123",
+			phase: "plan",
+			want:  "plan-owner-repo-123",
+		},
+		{
+			name:  "pull request URL with doing phase",
+			url:   "https://github.com/org/project/pull/456",
+			phase: "doing",
+			want:  "doing-org-project-456",
+		},
+		{
+			name:  "too short path",
+			url:   "https://github.com/owner/repo",
+			phase: "plan",
+			want:  "",
+		},
+		{
+			name:  "empty URL",
+			url:   "",
+			phase: "plan",
+			want:  "",
+		},
+		{
+			name:  "invalid URL",
+			url:   "not-a-url",
+			phase: "doing",
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractKey(tt.url, tt.phase)
+			if got != tt.want {
+				t.Errorf("extractKey(%q, %q) = %q, want %q", tt.url, tt.phase, got, tt.want)
+			}
+		})
 	}
 }
 
