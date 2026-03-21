@@ -465,6 +465,107 @@ func TestUpdateItemStatus_InvalidStatus(t *testing.T) {
 	}
 }
 
+func TestFetchProjectItems_IgnoresPullRequests(t *testing.T) {
+	resp := graphqlResponse{
+		Data: map[string]interface{}{
+			"user": map[string]interface{}{
+				"projectV2": map[string]interface{}{
+					"items": map[string]interface{}{
+						"totalCount": 2,
+						"pageInfo": map[string]interface{}{
+							"hasNextPage": false,
+							"endCursor":   "",
+						},
+						"nodes": []interface{}{
+							map[string]interface{}{
+								"id": "PVTI_ISSUE1",
+								"fieldValues": map[string]interface{}{
+									"nodes": []interface{}{
+										map[string]interface{}{
+											"__typename": "ProjectV2ItemFieldSingleSelectValue",
+											"name":       "Ready",
+											"field": map[string]interface{}{
+												"__typename": "ProjectV2SingleSelectField",
+												"name":       "Status",
+											},
+										},
+									},
+								},
+								"content": map[string]interface{}{
+									"__typename": "Issue",
+									"title":      "Valid Issue",
+									"url":        "https://github.com/example/repo/issues/1",
+									"body":       "Issue body",
+									"labels": map[string]interface{}{
+										"nodes": []interface{}{},
+									},
+								},
+							},
+							map[string]interface{}{
+								"id": "PVTI_PR1",
+								"fieldValues": map[string]interface{}{
+									"nodes": []interface{}{
+										map[string]interface{}{
+											"__typename": "ProjectV2ItemFieldSingleSelectValue",
+											"name":       "In Progress",
+											"field": map[string]interface{}{
+												"__typename": "ProjectV2SingleSelectField",
+												"name":       "Status",
+											},
+										},
+									},
+								},
+								"content": map[string]interface{}{
+									"__typename": "PullRequest",
+									"title":      "Some PR",
+									"url":        "https://github.com/example/repo/pull/2",
+									"body":       "PR body",
+									"labels": map[string]interface{}{
+										"nodes": []interface{}{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := newClientWithHTTP(srv.Client())
+	client.inner = newTestGitHubV4Client(srv.URL, srv.Client())
+
+	items, err := client.FetchProjectItems(context.Background(), "testuser", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// PullRequestは結果から除外され、Issueのみが返されることを検証する
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item (PullRequest is excluded), got %d", len(items))
+	}
+
+	// Issueのアイテムは正しく取得されていること
+	issueItem := items[0]
+	if issueItem.ID != "PVTI_ISSUE1" {
+		t.Errorf("items[0].ID = %q, want %q", issueItem.ID, "PVTI_ISSUE1")
+	}
+	if issueItem.Title != "Valid Issue" {
+		t.Errorf("items[0].Title = %q, want %q", issueItem.Title, "Valid Issue")
+	}
+	if issueItem.URL != "https://github.com/example/repo/issues/1" {
+		t.Errorf("items[0].URL = %q, want %q", issueItem.URL, "https://github.com/example/repo/issues/1")
+	}
+}
+
 // newTestGitHubV4Client creates a githubv4.Client pointing at a test server.
 func newTestGitHubV4Client(url string, httpClient *http.Client) *githubv4.Client {
 	return githubv4.NewEnterpriseClient(url+"/graphql", httpClient)

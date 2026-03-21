@@ -98,16 +98,6 @@ type itemContent struct {
 			}
 		} `graphql:"labels(first: 50)"`
 	} `graphql:"... on Issue"`
-	PullRequest struct {
-		Title  string
-		URL    string `graphql:"url"`
-		Body   string
-		Labels struct {
-			Nodes []struct {
-				Name string
-			}
-		} `graphql:"labels(first: 50)"`
-	} `graphql:"... on PullRequest"`
 }
 
 // FetchProjectItems retrieves all items from a GitHub ProjectV2.
@@ -142,6 +132,9 @@ func (c *Client) fetchUserProjectItems(ctx context.Context, owner string, projec
 		}
 
 		for _, node := range q.User.ProjectV2.Items.Nodes {
+			if node.Content.TypeName != "Issue" {
+				continue
+			}
 			allItems = append(allItems, toProjectItem(node))
 		}
 
@@ -171,6 +164,9 @@ func (c *Client) fetchOrgProjectItems(ctx context.Context, owner string, project
 		}
 
 		for _, node := range q.Organization.ProjectV2.Items.Nodes {
+			if node.Content.TypeName != "Issue" {
+				continue
+			}
 			allItems = append(allItems, toProjectItem(node))
 		}
 
@@ -310,19 +306,11 @@ func toProjectItem(node itemNode) ProjectItem {
 		Labels: make([]string, 0),
 	}
 
-	switch node.Content.TypeName {
-	case "Issue":
+	if node.Content.TypeName == "Issue" {
 		item.Title = node.Content.Issue.Title
 		item.URL = node.Content.Issue.URL
 		item.Body = node.Content.Issue.Body
 		for _, l := range node.Content.Issue.Labels.Nodes {
-			item.Labels = append(item.Labels, l.Name)
-		}
-	case "PullRequest":
-		item.Title = node.Content.PullRequest.Title
-		item.URL = node.Content.PullRequest.URL
-		item.Body = node.Content.PullRequest.Body
-		for _, l := range node.Content.PullRequest.Labels.Nodes {
 			item.Labels = append(item.Labels, l.Name)
 		}
 	}
