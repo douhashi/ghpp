@@ -61,6 +61,7 @@ type PromotePhases struct {
 
 // PromoteResponse is the top-level JSON output of the promote command.
 type PromoteResponse struct {
+	DryRun  bool          `json:"dry_run"`
 	Summary PhaseSummary  `json:"summary"`
 	Phases  PromotePhases `json:"phases"`
 }
@@ -101,6 +102,7 @@ type DemotePhases struct {
 
 // DemoteResponse is the top-level JSON output of the demote command.
 type DemoteResponse struct {
+	DryRun  bool          `json:"dry_run"`
 	Summary DemoteSummary `json:"summary"`
 	Phases  DemotePhases  `json:"phases"`
 }

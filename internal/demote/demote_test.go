@@ -224,6 +224,11 @@ func TestDryRun_UpdateItemStatusNotCalled(t *testing.T) {
 	if len(resp.Phases.Plan.Results.Demoted) != 1 {
 		t.Errorf("dry-run plan demoted = %d, want 1", len(resp.Phases.Plan.Results.Demoted))
 	}
+
+	// DryRun フィールドが true にセットされている
+	if !resp.DryRun {
+		t.Errorf("DryRun = false, want true")
+	}
 }
 
 // TestRun_SummaryAggregation: 全体サマリの集計が正確

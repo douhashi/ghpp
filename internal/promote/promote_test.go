@@ -446,6 +446,68 @@ func TestRun_FetchMetaError(t *testing.T) {
 	}
 }
 
+func TestPlanPhase_DryRun(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.DryRun = true
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// dry-run では UpdateItemStatus が呼ばれない
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+
+	// promoted スライスにはアイテムが含まれる（出力は通常と同じ）
+	promoted := resp.Phases.Plan.Results.Promoted
+	if len(promoted) != 2 {
+		t.Fatalf("expected 2 promoted in output, got %d", len(promoted))
+	}
+
+	// DryRun フィールドが true
+	if !resp.DryRun {
+		t.Error("expected DryRun = true, got false")
+	}
+}
+
+func TestDoingPhase_DryRun(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.DryRun = true
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready", Labels: []string{}},
+		{ID: "2", Title: "Issue 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Ready", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// dry-run では UpdateItemStatus が呼ばれない
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+
+	// promoted スライスにはアイテムが含まれる（出力は通常と同じ）
+	promoted := resp.Phases.Doing.Results.Promoted
+	if len(promoted) != 2 {
+		t.Fatalf("expected 2 promoted in output, got %d", len(promoted))
+	}
+
+	// DryRun フィールドが true
+	if !resp.DryRun {
+		t.Error("expected DryRun = true, got false")
+	}
+}
+
 func TestRun_EmptyItems_ResultsNotNil(t *testing.T) {
 	mp := &mockPromoter{meta: defaultMeta}
 	cfg := defaultCfg()
