@@ -31,6 +31,7 @@ func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, pr
 	doingPhaseResult := buildPhaseResult(doingResults)
 
 	return &github.PromoteResponse{
+		DryRun: cfg.DryRun,
 		Summary: github.PhaseSummary{
 			Promoted: planPhaseResult.Summary.Promoted + doingPhaseResult.Summary.Promoted,
 			Skipped:  planPhaseResult.Summary.Skipped + doingPhaseResult.Summary.Skipped,
@@ -79,8 +80,10 @@ func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectIt
 			continue
 		}
 
-		if err := promoter.UpdateItemStatus(ctx, meta, item.ID, cfg.StatusPlan); err != nil {
-			return results, fmt.Errorf("failed to promote item %s to %s: %w", item.ID, cfg.StatusPlan, err)
+		if !cfg.DryRun {
+			if err := promoter.UpdateItemStatus(ctx, meta, item.ID, cfg.StatusPlan); err != nil {
+				return results, fmt.Errorf("failed to promote item %s to %s: %w", item.ID, cfg.StatusPlan, err)
+			}
 		}
 
 		results.Promoted = append(results.Promoted, github.PromotedItem{
@@ -123,8 +126,10 @@ func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectI
 			continue
 		}
 
-		if err := promoter.UpdateItemStatus(ctx, meta, item.ID, cfg.StatusDoing); err != nil {
-			return results, fmt.Errorf("failed to promote item %s to %s: %w", item.ID, cfg.StatusDoing, err)
+		if !cfg.DryRun {
+			if err := promoter.UpdateItemStatus(ctx, meta, item.ID, cfg.StatusDoing); err != nil {
+				return results, fmt.Errorf("failed to promote item %s to %s: %w", item.ID, cfg.StatusDoing, err)
+			}
 		}
 
 		results.Promoted = append(results.Promoted, github.PromotedItem{

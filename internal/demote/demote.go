@@ -34,6 +34,7 @@ func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, de
 	planPhaseResult := buildPhaseResult(planResults)
 
 	return &github.DemoteResponse{
+		DryRun: cfg.DryRun,
 		Summary: github.DemoteSummary{
 			Demoted: doingPhaseResult.Summary.Demoted + planPhaseResult.Summary.Demoted,
 			Skipped: doingPhaseResult.Summary.Skipped + planPhaseResult.Summary.Skipped,

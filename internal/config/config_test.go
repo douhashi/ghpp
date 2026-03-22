@@ -263,6 +263,28 @@ func TestLoadWithArgs(t *testing.T) {
 				PlanLimit:     DefaultPlanLimit,
 			},
 		},
+		{
+			name: "--dry-run flag",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--dry-run",
+			},
+			env: map[string]string{},
+			want: &Config{
+				Token:          "tok",
+				Owner:          "owner",
+				ProjectNumber:  1,
+				StatusInbox:    DefaultStatusInbox,
+				StatusPlan:     DefaultStatusPlan,
+				StatusReady:    DefaultStatusReady,
+				StatusDoing:    DefaultStatusDoing,
+				PlanLimit:      DefaultPlanLimit,
+				StaleThreshold: DefaultStaleThreshold,
+				DryRun:         true,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -313,5 +335,8 @@ func assertConfig(t *testing.T, got, want *Config) {
 	}
 	if got.PlanLimit != want.PlanLimit {
 		t.Errorf("PlanLimit = %d, want %d", got.PlanLimit, want.PlanLimit)
+	}
+	if got.DryRun != want.DryRun {
+		t.Errorf("DryRun = %v, want %v", got.DryRun, want.DryRun)
 	}
 }
