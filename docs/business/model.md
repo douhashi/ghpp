@@ -77,3 +77,11 @@ Promote コマンドはフェーズ別サマリ付き JSON を出力する。
 - `phases.plan` / `phases.doing` は常にキーが存在する（0件でも省略されない）
 - 各フェーズの `results` は0件の場合 `[]`（`null` ではない）
 - 各 result の `action` は `"promoted"` または `"skipped"`
+
+### キーフォーマット
+
+各 result の `key` は `{phase}-{owner}-{repository}-{issue_no}` 形式で生成される。
+
+- `owner` は最大5文字、`repository` は最大10文字に切り詰められる
+- `phase` と `issue_no` には切り詰めを適用しない
+- キー全体は概ね最大32文字だが、`phase` と `issue_no` に切り詰めはないため、`issue_no` が大きい場合は超過しうる

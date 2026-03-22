@@ -43,6 +43,24 @@ func TestExtractKey(t *testing.T) {
 			phase: "doing",
 			want:  "",
 		},
+		{
+			name:  "long owner truncated to 5 chars",
+			url:   "https://github.com/longownername/repo/issues/1",
+			phase: "plan",
+			want:  "plan-longo-repo-1",
+		},
+		{
+			name:  "long repository truncated to 10 chars",
+			url:   "https://github.com/owner/longreponame123/issues/42",
+			phase: "doing",
+			want:  "doing-owner-longrepona-42",
+		},
+		{
+			name:  "both owner and repository truncated",
+			url:   "https://github.com/longownername/verylongreponame/issues/999",
+			phase: "doing",
+			want:  "doing-longo-verylongre-999",
+		},
 	}
 
 	for _, tt := range tests {
