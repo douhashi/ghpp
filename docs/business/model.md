@@ -85,3 +85,46 @@ Promote コマンドはフェーズ別サマリ付き JSON を出力する。
 - `owner` は最大5文字、`repository` は最大10文字に切り詰められる
 - `phase` と `issue_no` には切り詰めを適用しない
 - キー全体は概ね最大32文字だが、`phase` と `issue_no` に切り詰めはないため、`issue_no` が大きい場合は超過しうる
+
+---
+
+## Demote コマンド仕様
+
+demote コマンドは stale（更新から一定時間経過）なアイテムを降格させる。
+
+### 対象フェーズ
+
+| フェーズ | 条件 | 降格先 |
+|--------|------|-------|
+| doing  | `doing` ステータスで stale | `ready` |
+
+> **注意**: `plan` フェーズ（Plan → Backlog）の降格は demote コマンドでは行わない。
+
+### 出力フォーマット
+
+```json
+{
+  "dry_run": false,
+  "summary": {
+    "demoted": 1,
+    "skipped": 1,
+    "total": 2
+  },
+  "phases": {
+    "doing": {
+      "summary": {
+        "demoted": 1,
+        "skipped": 1,
+        "total": 2
+      },
+      "results": {
+        "demoted": [...],
+        "skipped": [...]
+      }
+    }
+  }
+}
+```
+
+- `phases.doing` は常にキーが存在する（0件でも省略されない）
+- `results.demoted` / `results.skipped` は0件の場合 `[]`（`null` ではない）

@@ -63,7 +63,6 @@ func TestRunDemote(t *testing.T) {
 				Owner:          "testowner",
 				ProjectNumber:  1,
 				StatusInbox:    "Backlog",
-				StatusPlan:     "Plan",
 				StatusReady:    "Ready",
 				StatusDoing:    "In progress",
 				StaleThreshold: time.Hour,

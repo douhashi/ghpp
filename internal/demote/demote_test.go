@@ -56,7 +56,6 @@ func defaultCfg() *config.Config {
 		Owner:          "testowner",
 		ProjectNumber:  1,
 		StatusInbox:    "Backlog",
-		StatusPlan:     "Plan",
 		StatusReady:    "Ready",
 		StatusDoing:    "In progress",
 		StaleThreshold: 2 * time.Hour,
@@ -138,66 +137,6 @@ func TestDoingPhase_FreshItemSkipped(t *testing.T) {
 	}
 }
 
-// TestPlanPhase_StaleItemDemotedToInbox: stale な plan アイテムが inbox に降格
-func TestPlanPhase_StaleItemDemotedToInbox(t *testing.T) {
-	md := &mockDemoter{meta: defaultMeta}
-	cfg := defaultCfg()
-	items := []github.ProjectItem{
-		{ID: "2", Title: "Stale Plan", URL: "https://github.com/owner/repo/issues/2", Status: "Plan", UpdatedAt: staleTime(), Labels: []string{}},
-	}
-
-	resp, err := Run(context.Background(), cfg, items, md)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	demoted := resp.Phases.Plan.Results.Demoted
-	if len(demoted) != 1 {
-		t.Fatalf("expected 1 demoted, got %d", len(demoted))
-	}
-	if demoted[0].Item.ID != "2" {
-		t.Errorf("demoted item ID = %q, want %q", demoted[0].Item.ID, "2")
-	}
-	if demoted[0].FromStatus != "Plan" {
-		t.Errorf("FromStatus = %q, want %q", demoted[0].FromStatus, "Plan")
-	}
-	if demoted[0].ToStatus != "Backlog" {
-		t.Errorf("ToStatus = %q, want %q", demoted[0].ToStatus, "Backlog")
-	}
-	if demoted[0].Key != "plan-owner-repo-2" {
-		t.Errorf("Key = %q, want %q", demoted[0].Key, "plan-owner-repo-2")
-	}
-	if resp.Phases.Plan.Summary.Demoted != 1 {
-		t.Errorf("plan summary demoted = %d, want 1", resp.Phases.Plan.Summary.Demoted)
-	}
-}
-
-// TestPlanPhase_FreshItemSkipped: 新しい plan アイテムはスキップ
-func TestPlanPhase_FreshItemSkipped(t *testing.T) {
-	md := &mockDemoter{meta: defaultMeta}
-	cfg := defaultCfg()
-	items := []github.ProjectItem{
-		{ID: "2", Title: "Fresh Plan", URL: "https://github.com/owner/repo/issues/2", Status: "Plan", UpdatedAt: freshTime(), Labels: []string{}},
-	}
-
-	resp, err := Run(context.Background(), cfg, items, md)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	demoted := resp.Phases.Plan.Results.Demoted
-	skipped := resp.Phases.Plan.Results.Skipped
-	if len(demoted) != 0 {
-		t.Fatalf("expected 0 demoted, got %d", len(demoted))
-	}
-	if len(skipped) != 1 {
-		t.Fatalf("expected 1 skipped, got %d", len(skipped))
-	}
-	if len(md.updated) != 0 {
-		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(md.updated))
-	}
-}
-
 // TestDryRun_UpdateItemStatusNotCalled: dry-run では UpdateItemStatus が呼ばれない
 func TestDryRun_UpdateItemStatusNotCalled(t *testing.T) {
 	md := &mockDemoter{meta: defaultMeta}
@@ -205,7 +144,6 @@ func TestDryRun_UpdateItemStatusNotCalled(t *testing.T) {
 	cfg.DryRun = true
 	items := []github.ProjectItem{
 		{ID: "1", Title: "Stale Doing", URL: "https://github.com/owner/repo/issues/1", Status: "In progress", UpdatedAt: staleTime(), Labels: []string{}},
-		{ID: "2", Title: "Stale Plan", URL: "https://github.com/owner/repo/issues/2", Status: "Plan", UpdatedAt: staleTime(), Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, md)
@@ -221,9 +159,6 @@ func TestDryRun_UpdateItemStatusNotCalled(t *testing.T) {
 	if len(resp.Phases.Doing.Results.Demoted) != 1 {
 		t.Errorf("dry-run doing demoted = %d, want 1", len(resp.Phases.Doing.Results.Demoted))
 	}
-	if len(resp.Phases.Plan.Results.Demoted) != 1 {
-		t.Errorf("dry-run plan demoted = %d, want 1", len(resp.Phases.Plan.Results.Demoted))
-	}
 
 	// DryRun フィールドが true にセットされている
 	if !resp.DryRun {
@@ -238,8 +173,6 @@ func TestRun_SummaryAggregation(t *testing.T) {
 	items := []github.ProjectItem{
 		{ID: "1", Title: "Stale Doing", URL: "https://github.com/owner/repo-a/issues/1", Status: "In progress", UpdatedAt: staleTime(), Labels: []string{}},
 		{ID: "2", Title: "Fresh Doing", URL: "https://github.com/owner/repo-b/issues/2", Status: "In progress", UpdatedAt: freshTime(), Labels: []string{}},
-		{ID: "3", Title: "Stale Plan", URL: "https://github.com/owner/repo-c/issues/3", Status: "Plan", UpdatedAt: staleTime(), Labels: []string{}},
-		{ID: "4", Title: "Fresh Plan", URL: "https://github.com/owner/repo-d/issues/4", Status: "Plan", UpdatedAt: freshTime(), Labels: []string{}},
 	}
 
 	resp, err := Run(context.Background(), cfg, items, md)
@@ -253,20 +186,14 @@ func TestRun_SummaryAggregation(t *testing.T) {
 	if resp.Phases.Doing.Summary.Skipped != 1 {
 		t.Errorf("doing skipped = %d, want 1", resp.Phases.Doing.Summary.Skipped)
 	}
-	if resp.Phases.Plan.Summary.Demoted != 1 {
-		t.Errorf("plan demoted = %d, want 1", resp.Phases.Plan.Summary.Demoted)
+	if resp.Summary.Demoted != 1 {
+		t.Errorf("total demoted = %d, want 1", resp.Summary.Demoted)
 	}
-	if resp.Phases.Plan.Summary.Skipped != 1 {
-		t.Errorf("plan skipped = %d, want 1", resp.Phases.Plan.Summary.Skipped)
+	if resp.Summary.Skipped != 1 {
+		t.Errorf("total skipped = %d, want 1", resp.Summary.Skipped)
 	}
-	if resp.Summary.Demoted != 2 {
-		t.Errorf("total demoted = %d, want 2", resp.Summary.Demoted)
-	}
-	if resp.Summary.Skipped != 2 {
-		t.Errorf("total skipped = %d, want 2", resp.Summary.Skipped)
-	}
-	if resp.Summary.Total != 4 {
-		t.Errorf("total = %d, want 4", resp.Summary.Total)
+	if resp.Summary.Total != 2 {
+		t.Errorf("total = %d, want 2", resp.Summary.Total)
 	}
 }
 
@@ -285,12 +212,6 @@ func TestRun_EmptyItems_ResultsNotNil(t *testing.T) {
 	}
 	if resp.Phases.Doing.Results.Skipped == nil {
 		t.Error("doing skipped should not be nil")
-	}
-	if resp.Phases.Plan.Results.Demoted == nil {
-		t.Error("plan demoted should not be nil")
-	}
-	if resp.Phases.Plan.Results.Skipped == nil {
-		t.Error("plan skipped should not be nil")
 	}
 }
 
