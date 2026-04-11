@@ -94,10 +94,9 @@ type DemotePhaseResult struct {
 }
 
 // DemotePhases holds results for each demotion phase as explicit fields
-// so that both keys always appear in JSON output, even when empty.
+// so that the key always appears in JSON output, even when empty.
 type DemotePhases struct {
 	Doing DemotePhaseResult `json:"doing"`
-	Plan  DemotePhaseResult `json:"plan"`
 }
 
 // DemoteResponse is the top-level JSON output of the demote command.

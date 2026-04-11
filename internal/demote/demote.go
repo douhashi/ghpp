@@ -10,7 +10,7 @@ import (
 	"github.com/douhashi/gh-project-promoter/internal/urlutil"
 )
 
-// Run executes both demotion phases and returns a structured response.
+// Run executes the demotion phase and returns a structured response.
 func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, demoter github.ItemPromoter) (*github.DemoteResponse, error) {
 	meta, err := demoter.FetchProjectMeta(ctx, cfg.Owner, cfg.ProjectNumber)
 	if err != nil {
@@ -24,24 +24,17 @@ func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, de
 		return nil, fmt.Errorf("doing phase failed: %w", err)
 	}
 
-	planResults, err := planPhase(ctx, cfg, items, meta, demoter, now)
-	if err != nil {
-		return nil, fmt.Errorf("plan phase failed: %w", err)
-	}
-
 	doingPhaseResult := buildPhaseResult(doingResults)
-	planPhaseResult := buildPhaseResult(planResults)
 
 	return &github.DemoteResponse{
 		DryRun: cfg.DryRun,
 		Summary: github.DemoteSummary{
-			Demoted: doingPhaseResult.Summary.Demoted + planPhaseResult.Summary.Demoted,
-			Skipped: doingPhaseResult.Summary.Skipped + planPhaseResult.Summary.Skipped,
-			Total:   doingPhaseResult.Summary.Total + planPhaseResult.Summary.Total,
+			Demoted: doingPhaseResult.Summary.Demoted,
+			Skipped: doingPhaseResult.Summary.Skipped,
+			Total:   doingPhaseResult.Summary.Total,
 		},
 		Phases: github.DemotePhases{
 			Doing: doingPhaseResult,
-			Plan:  planPhaseResult,
 		},
 	}, nil
 }
@@ -92,39 +85,6 @@ func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectI
 			Key:        urlutil.ExtractKey(item.URL, "doing"),
 			FromStatus: cfg.StatusDoing,
 			ToStatus:   cfg.StatusReady,
-		})
-	}
-
-	return results, nil
-}
-
-func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, demoter github.ItemPromoter, now time.Time) (github.DemotePhaseResults, error) {
-	var results github.DemotePhaseResults
-
-	for _, item := range items {
-		if item.Status != cfg.StatusPlan {
-			continue
-		}
-
-		if now.Sub(item.UpdatedAt) < cfg.StaleThreshold {
-			results.Skipped = append(results.Skipped, github.SkippedItem{
-				Item:   item,
-				Reason: "not stale",
-			})
-			continue
-		}
-
-		if !cfg.DryRun {
-			if err := demoter.UpdateItemStatus(ctx, meta, item.ID, cfg.StatusInbox); err != nil {
-				return results, fmt.Errorf("failed to demote item %s to %s: %w", item.ID, cfg.StatusInbox, err)
-			}
-		}
-
-		results.Demoted = append(results.Demoted, github.DemotedItem{
-			Item:       item,
-			Key:        urlutil.ExtractKey(item.URL, "plan"),
-			FromStatus: cfg.StatusPlan,
-			ToStatus:   cfg.StatusInbox,
 		})
 	}
 
