@@ -53,9 +53,10 @@ type PhaseResult struct {
 }
 
 // PromotePhases holds results for each promotion phase as explicit fields
-// so that both keys always appear in JSON output, even when empty.
+// so that all keys always appear in JSON output, even when empty.
 type PromotePhases struct {
 	Plan  PhaseResult `json:"plan"`
+	Ready PhaseResult `json:"ready"`
 	Doing PhaseResult `json:"doing"`
 }
 

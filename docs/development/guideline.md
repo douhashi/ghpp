@@ -36,6 +36,8 @@
 
 ```
 ghpp promote [flags]
+  --promote-ready-enabled       plan→ready自動昇格を有効化する (env: GHPP_PROMOTE_READY_ENABLED, default: false)
+  --planned-label <label>       plan→ready昇格トリガーとなるラベル名 (env: GHPP_PLANNED_LABEL, default: planned)
 ```
 
 ### demote
