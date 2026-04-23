@@ -6,7 +6,7 @@
 inbox → plan → ready → doing
 ```
 
-GHPP は上記フローのうち、以下2つの昇格を自動化する。
+GHPP は上記フローのうち、以下3つの昇格を自動化する。
 
 ## 1. 計画フェーズ（inbox → plan）
 
@@ -21,7 +21,31 @@ Issue を `inbox` から `plan` ステータスに昇格させる。
 
 - 一度に昇格する個数に上限を設ける（環境変数 `GHPP_PLAN_LIMIT` で上書き可能）
 
-## 2. 実行フェーズ（ready → doing）
+## 2. 準備フェーズ（plan → ready）
+
+Issue を `plan` から `ready` ステータスに昇格させる。**デフォルト無効**。
+
+### 動作
+
+- `plan` ステータスかつ指定ラベルを保持している Issue を `ready` ステータスに変更する
+- 昇格後もラベルは剥がさない（永続マーカーとして保持）
+- カスケード昇格を許可する（同一 `promote` 実行内で `plan → ready → doing` まで進む Issue があり得る）
+
+### 制約
+
+- **ラベルゲート**: 指定ラベルを持つ Issue のみが対象（ラベル付与自体がゲートとなるため上限なし）
+- ラベルマッチは単一ラベルのみ（複数ラベル指定は扱わない）
+
+### 設定
+
+| フラグ | 環境変数 | デフォルト | 説明 |
+|-------|---------|-----------|------|
+| `--promote-ready-enabled` | `GHPP_PROMOTE_READY_ENABLED` | `false` | 準備フェーズを有効化する |
+| `--planned-label` | `GHPP_PLANNED_LABEL` | `planned` | 昇格トリガーとなるラベル名 |
+
+- `--promote-ready-enabled=true` かつ `--planned-label` が空の場合は設定エラー
+
+## 3. 実行フェーズ（ready → doing）
 
 Issue を `ready` から `doing` ステータスに昇格させる。
 
@@ -61,6 +85,14 @@ Promote コマンドはフェーズ別サマリ付き JSON を出力する。
         }
       ]
     },
+    "ready": {
+      "summary": {
+        "promoted": 1,
+        "skipped": 0,
+        "total": 1
+      },
+      "results": [...]
+    },
     "doing": {
       "summary": {
         "promoted": 1,
@@ -74,7 +106,7 @@ Promote コマンドはフェーズ別サマリ付き JSON を出力する。
 ```
 
 - トップレベルの `summary` は全フェーズの合計値
-- `phases.plan` / `phases.doing` は常にキーが存在する（0件でも省略されない）
+- `phases.plan` / `phases.ready` / `phases.doing` は常にキーが存在する（0件でも省略されない）
 - 各フェーズの `results` は0件の場合 `[]`（`null` ではない）
 - 各 result の `action` は `"promoted"` または `"skipped"`
 

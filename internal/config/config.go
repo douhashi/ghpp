@@ -15,6 +15,7 @@ const (
 	DefaultStatusDoing    = "In progress"
 	DefaultPlanLimit      = 3
 	DefaultStaleThreshold = 2 * time.Hour
+	DefaultPlannedLabel   = "planned"
 )
 
 // getEnvOrDefault returns the value of the environment variable named by the key,
@@ -28,16 +29,18 @@ func getEnvOrDefault(key, defaultValue string) string {
 
 // Config holds application configuration loaded from environment variables.
 type Config struct {
-	Token          string
-	Owner          string
-	ProjectNumber  int
-	StatusInbox    string
-	StatusPlan     string
-	StatusReady    string
-	StatusDoing    string
-	PlanLimit      int
-	StaleThreshold time.Duration
-	DryRun         bool
+	Token               string
+	Owner               string
+	ProjectNumber       int
+	StatusInbox         string
+	StatusPlan          string
+	StatusReady         string
+	StatusDoing         string
+	PlanLimit           int
+	StaleThreshold      time.Duration
+	DryRun              bool
+	PromoteReadyEnabled bool
+	PlannedLabel        string
 }
 
 // Load reads environment variables and returns a Config.
@@ -62,6 +65,8 @@ func LoadWithArgs(args []string) (*Config, error) {
 	planLimit := fs.String("plan-limit", "", "Plan promotion limit (env: GHPP_PLAN_LIMIT)")
 	staleThreshold := fs.String("stale-threshold", "", "Stale threshold duration for demote (env: GHPP_STALE_THRESHOLD, default: 2h)")
 	dryRun := fs.Bool("dry-run", false, "Dry-run mode: do not actually update items")
+	promoteReadyEnabled := fs.Bool("promote-ready-enabled", false, "Enable plan→ready auto-promotion (env: GHPP_PROMOTE_READY_ENABLED, default: false)")
+	plannedLabel := fs.String("planned-label", "", "Label name that triggers plan→ready promotion (env: GHPP_PLANNED_LABEL, default: planned)")
 
 	if args != nil {
 		if err := fs.Parse(args); err != nil {
@@ -134,16 +139,38 @@ func LoadWithArgs(args []string) (*Config, error) {
 	// Resolve dry-run (flag only, no env var)
 	resolvedDryRun := *dryRun
 
+	// Resolve promote-ready-enabled (flag > env > default false)
+	resolvedPromoteReadyEnabled := *promoteReadyEnabled
+	if !flagSet["promote-ready-enabled"] {
+		envVal := os.Getenv("GHPP_PROMOTE_READY_ENABLED")
+		if envVal != "" {
+			resolvedPromoteReadyEnabled, err = strconv.ParseBool(envVal)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse GHPP_PROMOTE_READY_ENABLED: %w", err)
+			}
+		}
+	}
+
+	// Resolve planned-label (flag > env > default "planned")
+	resolvedPlannedLabel := resolve("planned-label", *plannedLabel, "GHPP_PLANNED_LABEL", DefaultPlannedLabel)
+
+	// Validate: promote-ready-enabled=true requires a non-empty planned-label
+	if resolvedPromoteReadyEnabled && resolvedPlannedLabel == "" {
+		return nil, fmt.Errorf("failed to load config: --planned-label (or GHPP_PLANNED_LABEL) must not be empty when --promote-ready-enabled is true")
+	}
+
 	return &Config{
-		Token:          resolvedToken,
-		Owner:          resolvedOwner,
-		ProjectNumber:  resolvedProjectNumber,
-		StatusInbox:    resolvedStatusInbox,
-		StatusPlan:     resolvedStatusPlan,
-		StatusReady:    resolvedStatusReady,
-		StatusDoing:    resolvedStatusDoing,
-		PlanLimit:      resolvedPlanLimit,
-		StaleThreshold: resolvedStaleThreshold,
-		DryRun:         resolvedDryRun,
+		Token:               resolvedToken,
+		Owner:               resolvedOwner,
+		ProjectNumber:       resolvedProjectNumber,
+		StatusInbox:         resolvedStatusInbox,
+		StatusPlan:          resolvedStatusPlan,
+		StatusReady:         resolvedStatusReady,
+		StatusDoing:         resolvedStatusDoing,
+		PlanLimit:           resolvedPlanLimit,
+		StaleThreshold:      resolvedStaleThreshold,
+		DryRun:              resolvedDryRun,
+		PromoteReadyEnabled: resolvedPromoteReadyEnabled,
+		PlannedLabel:        resolvedPlannedLabel,
 	}, nil
 }

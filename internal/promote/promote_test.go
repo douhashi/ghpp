@@ -449,4 +449,235 @@ func TestRun_EmptyItems_ResultsNotNil(t *testing.T) {
 	if len(resp.Phases.Doing.Results.Skipped) != 0 {
 		t.Errorf("doing skipped length = %d, want 0", len(resp.Phases.Doing.Results.Skipped))
 	}
+	if resp.Phases.Ready.Results.Promoted == nil {
+		t.Error("ready promoted should not be nil")
+	}
+	if resp.Phases.Ready.Results.Skipped == nil {
+		t.Error("ready skipped should not be nil")
+	}
+}
+
+func TestReadyPhase_Disabled(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = false
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue", URL: "https://github.com/owner/repo/issues/1", Status: "Plan", Labels: []string{"planned"}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// 機能無効時: ready フェーズで昇格しない
+	if len(resp.Phases.Ready.Results.Promoted) != 0 {
+		t.Errorf("expected 0 ready promoted, got %d", len(resp.Phases.Ready.Results.Promoted))
+	}
+	if resp.Phases.Ready.Summary.Promoted != 0 {
+		t.Errorf("ready summary promoted = %d, want 0", resp.Phases.Ready.Summary.Promoted)
+	}
+	// API 呼び出しなし
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+}
+
+func TestReadyPhase_LabelMatch(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "planned"
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue", URL: "https://github.com/owner/repo/issues/1", Status: "Plan", Labels: []string{"planned"}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Ready.Results.Promoted
+	if len(promoted) != 1 {
+		t.Fatalf("expected 1 ready promoted, got %d", len(promoted))
+	}
+	if promoted[0].Item.ID != "1" {
+		t.Errorf("promoted item ID = %q, want %q", promoted[0].Item.ID, "1")
+	}
+	if promoted[0].ToStatus != cfg.StatusReady {
+		t.Errorf("ToStatus = %q, want %q", promoted[0].ToStatus, cfg.StatusReady)
+	}
+	if resp.Phases.Ready.Summary.Promoted != 1 {
+		t.Errorf("ready summary promoted = %d, want 1", resp.Phases.Ready.Summary.Promoted)
+	}
+}
+
+func TestReadyPhase_LabelMismatch(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "planned"
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue", URL: "https://github.com/owner/repo/issues/1", Status: "Plan", Labels: []string{"other-label"}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(resp.Phases.Ready.Results.Promoted) != 0 {
+		t.Errorf("expected 0 ready promoted, got %d", len(resp.Phases.Ready.Results.Promoted))
+	}
+	// ラベルが一致しないアイテムは Skipped に記録される
+	if resp.Phases.Ready.Summary.Promoted != 0 {
+		t.Errorf("ready summary promoted = %d, want 0", resp.Phases.Ready.Summary.Promoted)
+	}
+	if len(resp.Phases.Ready.Results.Skipped) != 1 {
+		t.Errorf("expected 1 ready skipped, got %d", len(resp.Phases.Ready.Results.Skipped))
+	}
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+}
+
+func TestReadyPhase_CustomLabel(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "my-custom-label"
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue with custom", URL: "https://github.com/owner/repo/issues/1", Status: "Plan", Labels: []string{"my-custom-label"}},
+		{ID: "2", Title: "Plan Issue without", URL: "https://github.com/owner/repo/issues/2", Status: "Plan", Labels: []string{"planned"}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Ready.Results.Promoted
+	if len(promoted) != 1 {
+		t.Fatalf("expected 1 ready promoted, got %d", len(promoted))
+	}
+	if promoted[0].Item.ID != "1" {
+		t.Errorf("promoted item ID = %q, want %q", promoted[0].Item.ID, "1")
+	}
+}
+
+func TestReadyPhase_DryRun(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "planned"
+	cfg.DryRun = true
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue", URL: "https://github.com/owner/repo/issues/1", Status: "Plan", Labels: []string{"planned"}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// dry-run では UpdateItemStatus が呼ばれない
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+
+	// promoted スライスにはアイテムが含まれる
+	promoted := resp.Phases.Ready.Results.Promoted
+	if len(promoted) != 1 {
+		t.Fatalf("expected 1 ready promoted in output, got %d", len(promoted))
+	}
+}
+
+func TestCascade_PlanToReadyToDoing(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "planned"
+	// plan フェーズ: Backlog -> Plan
+	// ready フェーズ: Plan + "planned" ラベル -> Ready
+	// doing フェーズ: Ready -> In progress
+	items := []github.ProjectItem{
+		{
+			ID:     "1",
+			Title:  "Cascade Issue",
+			URL:    "https://github.com/owner/repo-cascade/issues/1",
+			Status: "Plan",
+			Labels: []string{"planned"},
+		},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ready フェーズで Plan -> Ready に昇格
+	if resp.Phases.Ready.Summary.Promoted != 1 {
+		t.Errorf("ready promoted = %d, want 1", resp.Phases.Ready.Summary.Promoted)
+	}
+
+	// doing フェーズで Ready -> In progress に昇格（カスケード）
+	if resp.Phases.Doing.Summary.Promoted != 1 {
+		t.Errorf("doing promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
+	}
+
+	// summary の合算に ready フェーズが含まれる
+	if resp.Summary.Promoted != 2 {
+		t.Errorf("total promoted = %d, want 2", resp.Summary.Promoted)
+	}
+}
+
+func TestRun_ReadyPhaseInSummary(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "planned"
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Plan", Labels: []string{"planned"}},
+		{ID: "2", Title: "Plan Issue 2", URL: "https://github.com/owner/repo-b/issues/2", Status: "Plan", Labels: []string{"planned"}},
+		{ID: "3", Title: "Inbox Issue", URL: "https://github.com/owner/repo-c/issues/3", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// plan: 1 (Backlog→Plan), ready: 2 (Plan→Ready), doing: 2 (Ready→Doing, cascade)
+	if resp.Phases.Plan.Summary.Promoted != 1 {
+		t.Errorf("plan promoted = %d, want 1", resp.Phases.Plan.Summary.Promoted)
+	}
+	if resp.Phases.Ready.Summary.Promoted != 2 {
+		t.Errorf("ready promoted = %d, want 2", resp.Phases.Ready.Summary.Promoted)
+	}
+	if resp.Phases.Doing.Summary.Promoted != 2 {
+		t.Errorf("doing promoted = %d, want 2", resp.Phases.Doing.Summary.Promoted)
+	}
+	// summary には全フェーズ合算
+	if resp.Summary.Promoted != resp.Phases.Plan.Summary.Promoted+resp.Phases.Ready.Summary.Promoted+resp.Phases.Doing.Summary.Promoted {
+		t.Errorf("summary promoted mismatch: got %d", resp.Summary.Promoted)
+	}
+}
+
+func TestRun_ReadyFieldAlwaysPresent(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromoteReadyEnabled = false // 機能無効
+
+	resp, err := Run(context.Background(), cfg, []github.ProjectItem{}, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// 機能無効時も phases.ready が存在すること（nil でないこと）
+	if resp.Phases.Ready.Results.Promoted == nil {
+		t.Error("phases.ready.results.promoted should not be nil even when disabled")
+	}
+	if resp.Phases.Ready.Results.Skipped == nil {
+		t.Error("phases.ready.results.skipped should not be nil even when disabled")
+	}
 }
