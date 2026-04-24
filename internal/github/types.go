@@ -10,7 +10,7 @@ type ProjectItem struct {
 	Status    string    `json:"status"`
 	Body      string    `json:"body"`
 	Labels    []string  `json:"labels"`
-	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedAt time.Time `json:"updated_at"` // Status フィールドの最終更新時刻（ProjectV2ItemFieldSingleSelectValue.updatedAt）
 }
 
 // ProjectMeta holds project-level metadata needed for mutations.

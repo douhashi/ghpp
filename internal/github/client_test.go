@@ -566,6 +566,142 @@ func TestFetchProjectItems_IgnoresPullRequests(t *testing.T) {
 	}
 }
 
+// TestFetchProjectItems_UpdatedAt_FromStatusField: Status フィールドの updatedAt が ProjectItem.UpdatedAt に反映される
+func TestFetchProjectItems_UpdatedAt_FromStatusField(t *testing.T) {
+	resp := graphqlResponse{
+		Data: map[string]interface{}{
+			"user": map[string]interface{}{
+				"projectV2": map[string]interface{}{
+					"items": map[string]interface{}{
+						"totalCount": 1,
+						"pageInfo": map[string]interface{}{
+							"hasNextPage": false,
+							"endCursor":   "",
+						},
+						"nodes": []interface{}{
+							map[string]interface{}{
+								"id": "PVTI_UA1",
+								"fieldValues": map[string]interface{}{
+									"nodes": []interface{}{
+										map[string]interface{}{
+											"__typename": "ProjectV2ItemFieldSingleSelectValue",
+											"name":       "In progress",
+											"updatedAt":  "2024-01-15T10:00:00Z",
+											"field": map[string]interface{}{
+												"__typename": "ProjectV2SingleSelectField",
+												"name":       "Status",
+											},
+										},
+									},
+								},
+								"content": map[string]interface{}{
+									"__typename": "Issue",
+									"title":      "Status UpdatedAt Issue",
+									"url":        "https://github.com/example/repo/issues/10",
+									"body":       "body",
+									"labels": map[string]interface{}{
+										"nodes": []interface{}{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := &Client{inner: newTestGitHubV4Client(srv.URL, srv.Client())}
+
+	items, err := client.FetchProjectItems(context.Background(), "testuser", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+
+	// Status フィールドの updatedAt (2024-01-15T10:00:00Z) が ProjectItem.UpdatedAt に設定されていること
+	wantTime := "2024-01-15 10:00:00 +0000 UTC"
+	gotTime := items[0].UpdatedAt.UTC().String()
+	if gotTime != wantTime {
+		t.Errorf("UpdatedAt = %q, want %q", gotTime, wantTime)
+	}
+}
+
+// TestFetchProjectItems_UpdatedAt_NoStatusField: Status フィールドがない場合は UpdatedAt がゼロ値になる
+func TestFetchProjectItems_UpdatedAt_NoStatusField(t *testing.T) {
+	resp := graphqlResponse{
+		Data: map[string]interface{}{
+			"user": map[string]interface{}{
+				"projectV2": map[string]interface{}{
+					"items": map[string]interface{}{
+						"totalCount": 1,
+						"pageInfo": map[string]interface{}{
+							"hasNextPage": false,
+							"endCursor":   "",
+						},
+						"nodes": []interface{}{
+							map[string]interface{}{
+								"id": "PVTI_UA2",
+								"fieldValues": map[string]interface{}{
+									"nodes": []interface{}{
+										map[string]interface{}{
+											"__typename": "ProjectV2ItemFieldTextValue",
+										},
+									},
+								},
+								"content": map[string]interface{}{
+									"__typename": "Issue",
+									"title":      "No Status Field Issue",
+									"url":        "https://github.com/example/repo/issues/11",
+									"body":       "body",
+									"labels": map[string]interface{}{
+										"nodes": []interface{}{},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("failed to encode response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := &Client{inner: newTestGitHubV4Client(srv.URL, srv.Client())}
+
+	items, err := client.FetchProjectItems(context.Background(), "testuser", 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+
+	// Status フィールドがない場合は UpdatedAt がゼロ値であること
+	if !items[0].UpdatedAt.IsZero() {
+		t.Errorf("UpdatedAt = %v, want zero value", items[0].UpdatedAt)
+	}
+}
+
 // newTestGitHubV4Client creates a githubv4.Client pointing at a test server.
 func newTestGitHubV4Client(url string, httpClient *http.Client) *githubv4.Client {
 	return githubv4.NewEnterpriseClient(url+"/graphql", httpClient)
