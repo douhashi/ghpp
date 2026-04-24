@@ -42,7 +42,7 @@ ghpp promote [flags]
 
 ### demote
 
-滞留 Issue を前のステータスへ降格させる。`--stale-threshold` で設定した期間（デフォルト: 2h）以上更新がないアイテムが対象。
+滞留 Issue を前のステータスへ降格させる。`--stale-threshold` で設定した期間（デフォルト: 2h）以上 Status 遷移が行われていないアイテムが対象。stale 判定は Issue 本体の更新日時ではなく、Status フィールド（`ProjectV2ItemFieldSingleSelectValue`）の `updatedAt` を基準とする。
 
 ```
 ghpp demote [flags]

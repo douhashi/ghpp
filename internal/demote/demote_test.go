@@ -63,12 +63,14 @@ func defaultCfg() *config.Config {
 	}
 }
 
+// staleTime は Status 遷移から stale 閾値（2h）を超えた時刻を返す。
 func staleTime() time.Time {
-	return time.Now().Add(-3 * time.Hour) // 3時間前 = stale
+	return time.Now().Add(-3 * time.Hour) // Status 遷移から3時間経過 = stale
 }
 
+// freshTime は Status 遷移から stale 閾値（2h）以内の時刻を返す。
 func freshTime() time.Time {
-	return time.Now().Add(-1 * time.Hour) // 1時間前 = fresh
+	return time.Now().Add(-1 * time.Hour) // Status 遷移から1時間経過 = fresh
 }
 
 // TestDoingPhase_StaleItemDemotedToReady: stale な doing アイテムが ready に降格
