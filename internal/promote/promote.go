@@ -97,6 +97,15 @@ func buildPhaseResult(results github.PhaseResults) github.PhaseResult {
 
 func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, promoter github.ItemPromoter) (github.PhaseResults, error) {
 	var results github.PhaseResults
+
+	// Plan カラムの現在の件数をカウントする（WIP 上限の基準）
+	currentPlanCount := 0
+	for _, item := range items {
+		if item.Status == cfg.StatusPlan {
+			currentPlanCount++
+		}
+	}
+
 	promoted := 0
 
 	for _, item := range items {
@@ -104,10 +113,10 @@ func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectIt
 			continue
 		}
 
-		if cfg.PlanLimit > 0 && promoted >= cfg.PlanLimit {
+		if cfg.PlanLimit > 0 && (currentPlanCount+promoted) >= cfg.PlanLimit {
 			results.Skipped = append(results.Skipped, github.SkippedItem{
 				Item:   item,
-				Reason: "plan limit reached",
+				Reason: fmt.Sprintf("plan limit reached (currently %d/%d in Plan)", currentPlanCount, cfg.PlanLimit),
 			})
 			continue
 		}

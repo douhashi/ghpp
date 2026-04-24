@@ -19,7 +19,10 @@ Issue を `inbox` から `plan` ステータスに昇格させる。
 
 ### 制約
 
-- 一度に昇格する個数に上限を設ける（環境変数 `GHPP_PLAN_LIMIT` で上書き可能）
+- Plan カラムの WIP 上限（環境変数 `GHPP_PLAN_LIMIT` で上書き可能、デフォルト3）
+- Plan 状態の Issue 数が PlanLimit 以上の場合、Backlog からの昇格は行わない
+- Plan 状態が PlanLimit 未満の場合は `PlanLimit - 現在の Plan 数` の件数だけ昇格する（空き枠を埋める）
+- Ready / Doing の Issue 数はカウント対象外
 
 ## 2. 準備フェーズ（plan → ready）
 

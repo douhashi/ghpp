@@ -3,6 +3,7 @@ package promote
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/douhashi/gh-project-promoter/internal/config"
@@ -119,8 +120,8 @@ func TestPlanPhase_PlanLimitExceeded(t *testing.T) {
 	if len(skipped) != 2 {
 		t.Fatalf("expected 2 skipped, got %d", len(skipped))
 	}
-	if skipped[0].Reason != "plan limit reached" {
-		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "plan limit reached")
+	if skipped[0].Reason != "plan limit reached (currently 0/1 in Plan)" {
+		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "plan limit reached (currently 0/1 in Plan)")
 	}
 	if promoted[0].Key != "plan-owner-repo-1" {
 		t.Errorf("promoted Key = %q, want %q", promoted[0].Key, "plan-owner-repo-1")
@@ -180,6 +181,132 @@ func TestPlanPhase_PlanLimitZeroPromotesAll(t *testing.T) {
 	}
 	if resp.Phases.Plan.Summary.Promoted != 3 {
 		t.Errorf("plan summary promoted = %d, want 3", resp.Phases.Plan.Summary.Promoted)
+	}
+}
+
+func TestPlanPhase_ExistingPlanCountReducesAvailable(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PlanLimit = 3
+	// 既存 Plan=2、Backlog=3 → available=1 なので 1件昇格、2件スキップ
+	items := []github.ProjectItem{
+		{ID: "p1", Title: "Plan 1", URL: "https://github.com/owner/repo/issues/10", Status: "Plan", Labels: []string{}},
+		{ID: "p2", Title: "Plan 2", URL: "https://github.com/owner/repo/issues/11", Status: "Plan", Labels: []string{}},
+		{ID: "b1", Title: "Backlog 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "b2", Title: "Backlog 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+		{ID: "b3", Title: "Backlog 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Plan.Results.Promoted
+	skipped := resp.Phases.Plan.Results.Skipped
+	if len(promoted) != 1 {
+		t.Fatalf("expected 1 promoted, got %d", len(promoted))
+	}
+	if len(skipped) != 2 {
+		t.Fatalf("expected 2 skipped, got %d", len(skipped))
+	}
+	wantReason := "plan limit reached (currently 2/3 in Plan)"
+	if skipped[0].Reason != wantReason {
+		t.Errorf("Reason = %q, want %q", skipped[0].Reason, wantReason)
+	}
+}
+
+func TestPlanPhase_ExistingPlanAtLimit(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PlanLimit = 3
+	// 既存 Plan=3、Backlog=2 → available=0 なので 0件昇格、2件スキップ
+	items := []github.ProjectItem{
+		{ID: "p1", Title: "Plan 1", URL: "https://github.com/owner/repo/issues/10", Status: "Plan", Labels: []string{}},
+		{ID: "p2", Title: "Plan 2", URL: "https://github.com/owner/repo/issues/11", Status: "Plan", Labels: []string{}},
+		{ID: "p3", Title: "Plan 3", URL: "https://github.com/owner/repo/issues/12", Status: "Plan", Labels: []string{}},
+		{ID: "b1", Title: "Backlog 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "b2", Title: "Backlog 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Plan.Results.Promoted
+	skipped := resp.Phases.Plan.Results.Skipped
+	if len(promoted) != 0 {
+		t.Fatalf("expected 0 promoted, got %d", len(promoted))
+	}
+	if len(skipped) != 2 {
+		t.Fatalf("expected 2 skipped, got %d", len(skipped))
+	}
+	wantReason := "plan limit reached (currently 3/3 in Plan)"
+	if skipped[0].Reason != wantReason {
+		t.Errorf("Reason = %q, want %q", skipped[0].Reason, wantReason)
+	}
+}
+
+func TestPlanPhase_ReadyDoingNotCounted(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PlanLimit = 2
+	// Plan=0、Ready=2、Doing=2、Backlog=3 → Ready/Doing はカウント外、2件昇格
+	items := []github.ProjectItem{
+		{ID: "r1", Title: "Ready 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Ready", Labels: []string{}},
+		{ID: "r2", Title: "Ready 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Ready", Labels: []string{}},
+		{ID: "d1", Title: "Doing 1", URL: "https://github.com/owner/repo-c/issues/1", Status: "In progress", Labels: []string{}},
+		{ID: "d2", Title: "Doing 2", URL: "https://github.com/owner/repo-d/issues/1", Status: "In progress", Labels: []string{}},
+		{ID: "b1", Title: "Backlog 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "b2", Title: "Backlog 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+		{ID: "b3", Title: "Backlog 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Plan.Results.Promoted
+	if len(promoted) != 2 {
+		t.Fatalf("expected 2 promoted, got %d", len(promoted))
+	}
+	if resp.Phases.Plan.Summary.Promoted != 2 {
+		t.Errorf("plan summary promoted = %d, want 2", resp.Phases.Plan.Summary.Promoted)
+	}
+}
+
+func TestPlanPhase_DryRun_SkipReasonContainsPlanCount(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.DryRun = true
+	cfg.PlanLimit = 2
+	// 既存 Plan=1、Backlog=3 → 1件昇格（dry-run）、2件スキップ
+	items := []github.ProjectItem{
+		{ID: "p1", Title: "Plan 1", URL: "https://github.com/owner/repo/issues/10", Status: "Plan", Labels: []string{}},
+		{ID: "b1", Title: "Backlog 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "b2", Title: "Backlog 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+		{ID: "b3", Title: "Backlog 3", URL: "https://github.com/owner/repo/issues/3", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// dry-run では UpdateItemStatus が呼ばれない
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+
+	skipped := resp.Phases.Plan.Results.Skipped
+	if len(skipped) != 2 {
+		t.Fatalf("expected 2 skipped, got %d", len(skipped))
+	}
+	// スキップ Reason に "1/2" が含まれること
+	if !strings.Contains(skipped[0].Reason, "1/2") {
+		t.Errorf("Reason = %q, want it to contain %q", skipped[0].Reason, "1/2")
 	}
 }
 
