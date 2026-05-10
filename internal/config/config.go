@@ -16,6 +16,10 @@ const (
 	DefaultPlanLimit      = 3
 	DefaultStaleThreshold = 2 * time.Hour
 	DefaultPlannedLabel   = "planned"
+
+	WorkflowFull    = "full"
+	WorkflowSimple  = "simple"
+	DefaultWorkflow = WorkflowFull
 )
 
 // getEnvOrDefault returns the value of the environment variable named by the key,
@@ -42,6 +46,7 @@ type Config struct {
 	PromotePlanEnabled  bool
 	PromoteReadyEnabled bool
 	PlannedLabel        string
+	Workflow            string
 }
 
 // Load reads environment variables and returns a Config.
@@ -69,6 +74,7 @@ func LoadWithArgs(args []string) (*Config, error) {
 	promotePlanEnabled := fs.Bool("promote-plan-enabled", true, "Enable backlog→plan auto-promotion (env: GHPP_PROMOTE_PLAN_ENABLED, default: true)")
 	promoteReadyEnabled := fs.Bool("promote-ready-enabled", false, "Enable plan→ready auto-promotion (env: GHPP_PROMOTE_READY_ENABLED, default: false)")
 	plannedLabel := fs.String("planned-label", "", "Label name that triggers plan→ready promotion (env: GHPP_PLANNED_LABEL, default: planned)")
+	workflow := fs.String("workflow", "", "Workflow mode: full or simple (env: GHPP_WORKFLOW, default: full)")
 
 	if args != nil {
 		if err := fs.Parse(args); err != nil {
@@ -173,6 +179,12 @@ func LoadWithArgs(args []string) (*Config, error) {
 		return nil, fmt.Errorf("failed to load config: --planned-label (or GHPP_PLANNED_LABEL) must not be empty when --promote-ready-enabled is true")
 	}
 
+	// Resolve workflow (flag > env > default "full")
+	resolvedWorkflow := resolve("workflow", *workflow, "GHPP_WORKFLOW", DefaultWorkflow)
+	if resolvedWorkflow != WorkflowFull && resolvedWorkflow != WorkflowSimple {
+		return nil, fmt.Errorf("failed to load config: --workflow must be one of [%s, %s], got %q", WorkflowFull, WorkflowSimple, resolvedWorkflow)
+	}
+
 	return &Config{
 		Token:               resolvedToken,
 		Owner:               resolvedOwner,
@@ -187,5 +199,6 @@ func LoadWithArgs(args []string) (*Config, error) {
 		PromotePlanEnabled:  resolvedPromotePlanEnabled,
 		PromoteReadyEnabled: resolvedPromoteReadyEnabled,
 		PlannedLabel:        resolvedPlannedLabel,
+		Workflow:            resolvedWorkflow,
 	}, nil
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -12,6 +13,7 @@ var allEnvKeys = []string{
 	"GHPP_PLAN_LIMIT",
 	"GHPP_PROMOTE_PLAN_ENABLED",
 	"GHPP_PROMOTE_READY_ENABLED", "GHPP_PLANNED_LABEL",
+	"GHPP_WORKFLOW",
 }
 
 // clearEnv clears all config-related environment variables for test isolation.
@@ -52,6 +54,7 @@ func TestLoad(t *testing.T) {
 				PlanLimit:          5,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 		{
@@ -72,6 +75,7 @@ func TestLoad(t *testing.T) {
 				PlanLimit:          3,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 		{
@@ -170,6 +174,7 @@ func TestLoadWithArgs(t *testing.T) {
 				PlanLimit:          7,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 		{
@@ -196,6 +201,7 @@ func TestLoadWithArgs(t *testing.T) {
 				PlanLimit:          4,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 		{
@@ -227,6 +233,7 @@ func TestLoadWithArgs(t *testing.T) {
 				PlanLimit:          10,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 		{
@@ -275,6 +282,7 @@ func TestLoadWithArgs(t *testing.T) {
 				PlanLimit:          DefaultPlanLimit,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 		{
@@ -299,6 +307,7 @@ func TestLoadWithArgs(t *testing.T) {
 				DryRun:             true,
 				PromotePlanEnabled: true,
 				PlannedLabel:       DefaultPlannedLabel,
+				Workflow:           WorkflowFull,
 			},
 		},
 	}
@@ -364,6 +373,9 @@ func assertConfig(t *testing.T, got, want *Config) {
 	if got.PlannedLabel != want.PlannedLabel {
 		t.Errorf("PlannedLabel = %q, want %q", got.PlannedLabel, want.PlannedLabel)
 	}
+	if got.Workflow != want.Workflow {
+		t.Errorf("Workflow = %q, want %q", got.Workflow, want.Workflow)
+	}
 }
 
 func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
@@ -397,6 +409,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: true,
 				PlannedLabel:        "planned",
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -423,6 +436,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: true,
 				PlannedLabel:        "my-label",
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -451,6 +465,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        "flag-label",
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -474,6 +489,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -523,6 +539,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        "custom-label",
+				Workflow:            WorkflowFull,
 			},
 		},
 	}
@@ -579,6 +596,7 @@ func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -603,6 +621,7 @@ func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
 				PromotePlanEnabled:  false,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -628,6 +647,7 @@ func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
 				PromotePlanEnabled:  false,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -653,6 +673,7 @@ func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
 				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -679,6 +700,7 @@ func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
 				PromotePlanEnabled:  false,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
 			},
 		},
 		{
@@ -706,6 +728,199 @@ func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error but got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			assertConfig(t, got, tt.want)
+		})
+	}
+}
+
+func TestLoadWithArgs_Workflow(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		env     map[string]string
+		want    *Config
+		wantErr bool
+	}{
+		{
+			name: "default: workflow=full",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
+			},
+		},
+		{
+			name: "--workflow=full explicit",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--workflow", "full",
+			},
+			env: map[string]string{},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
+			},
+		},
+		{
+			name: "--workflow=simple flag",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--workflow", "simple",
+			},
+			env: map[string]string{},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowSimple,
+			},
+		},
+		{
+			name: "GHPP_WORKFLOW=simple env var",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{
+				"GHPP_WORKFLOW": "simple",
+			},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowSimple,
+			},
+		},
+		{
+			name: "flag overrides env var for workflow",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--workflow", "full",
+			},
+			env: map[string]string{
+				"GHPP_WORKFLOW": "simple",
+			},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+				Workflow:            WorkflowFull,
+			},
+		},
+		{
+			name: "--workflow=invalid returns error",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--workflow", "light",
+			},
+			env:     map[string]string{},
+			wantErr: true,
+		},
+		{
+			name: "GHPP_WORKFLOW=invalid returns error",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{
+				"GHPP_WORKFLOW": "invalid",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearEnv(t)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			got, err := LoadWithArgs(tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+				if got != nil {
+					t.Errorf("expected nil config on error, got %+v", got)
+				}
+				// error message must list allowed values
+				if err != nil {
+					msg := err.Error()
+					if !strings.Contains(msg, "full") || !strings.Contains(msg, "simple") {
+						t.Errorf("error message %q should list allowed workflow values", msg)
+					}
 				}
 				return
 			}

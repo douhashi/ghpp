@@ -61,6 +61,12 @@ func buildPhaseResult(results github.DemotePhaseResults) github.DemotePhaseResul
 func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, demoter github.ItemPromoter, now time.Time) (github.DemotePhaseResults, error) {
 	var results github.DemotePhaseResults
 
+	// 降格先: full モードでは Ready、simple モードでは Backlog
+	toStatus := cfg.StatusReady
+	if cfg.Workflow == config.WorkflowSimple {
+		toStatus = cfg.StatusInbox
+	}
+
 	for _, item := range items {
 		if item.Status != cfg.StatusDoing {
 			continue
@@ -75,8 +81,8 @@ func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectI
 		}
 
 		if !cfg.DryRun {
-			if err := demoter.UpdateItemStatus(ctx, meta, item.ID, cfg.StatusReady); err != nil {
-				return results, fmt.Errorf("failed to demote item %s to %s: %w", item.ID, cfg.StatusReady, err)
+			if err := demoter.UpdateItemStatus(ctx, meta, item.ID, toStatus); err != nil {
+				return results, fmt.Errorf("failed to demote item %s to %s: %w", item.ID, toStatus, err)
 			}
 		}
 
@@ -84,7 +90,7 @@ func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectI
 			Item:       item,
 			Key:        urlutil.ExtractKey(item.URL, "doing"),
 			FromStatus: cfg.StatusDoing,
-			ToStatus:   cfg.StatusReady,
+			ToStatus:   toStatus,
 		})
 	}
 

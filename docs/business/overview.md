@@ -25,6 +25,7 @@ GitHub Projects のステータス管理を手動で行う運用コストを削�
 | `GHPP_STATUS_READY` | `Ready` | ready に対応するステータス名 |
 | `GHPP_STATUS_DOING` | `In progress` | doing に対応するステータス名 |
 | `GHPP_PLAN_LIMIT` | `3` | 計画フェーズで一度に昇格する上限数 |
+| `GHPP_WORKFLOW` | `full` | ワークフローモード（`full` / `simple`）。`simple` は Backlog と In progress のみで運用 |
 
 ## 設定ファイル
 
