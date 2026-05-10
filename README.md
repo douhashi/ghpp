@@ -97,6 +97,87 @@ ghpp promote --status-inbox "Todo" --status-plan "Planned"
 - `phases.plan` / `phases.doing` は常にキーが存在（0件でも省略されない）
 - 各 `results.promoted` / `results.skipped` は0件の場合 `[]`（`null` ではない）
 
+#### `project init`
+
+テンプレート GitHub Project (Projects v2) を複製し、対象リポジトリにリンクします。
+
+```bash
+# git リポジトリ配下で実行（カレントの remote.origin.url から repo を自動検出）
+ghpp project init --token ghp_xxx --title "My Project"
+
+# リポジトリを明示
+ghpp project init --token ghp_xxx --title "My Project" --repo my-org/my-repo
+
+# 別 owner にプロジェクトを作る
+ghpp project init --token ghp_xxx --title "My Project" --owner other-org --repo my-org/my-repo
+
+# テンプレートを差し替え（デフォルト: douhashi/25）
+ghpp project init --title "My Project" --template-owner my-org --template-number 7
+
+# dry-run（API mutation を呼ばずに resolve のみ実行）
+ghpp project init --title "My Project" --dry-run
+
+# 同名プロジェクトがあっても作成（衝突チェックをスキップ）
+ghpp project init --title "My Project" --force
+```
+
+**動作の詳細:**
+
+1. 同名プロジェクトの有無をチェック（`--force` で省略可能）
+2. テンプレートプロジェクトと作成先 owner / リポジトリの GraphQL ノード ID を解決
+3. `copyProjectV2` でテンプレートを複製
+4. `linkProjectV2ToRepository` で対象リポジトリにリンク
+5. 新プロジェクトの workflow 一覧を取得
+6. JSON で結果を出力
+
+**フラグ一覧:**
+
+| フラグ | 環境変数 | 必須 | デフォルト値 | 説明 |
+|---|---|---|---|---|
+| `--token` | `GH_TOKEN` | Yes | - | GitHub API トークン（`project` write スコープと `repo` スコープが必要） |
+| `--title` | - | Yes | - | 新規プロジェクトのタイトル |
+| `--owner` | `GHPP_OWNER` | No | `--repo` の owner | プロジェクトを作成する user / org |
+| `--repo` | - | No | git remote から自動検出 | リンクするリポジトリ（`owner/name` 形式） |
+| `--template-owner` | `GHPP_TEMPLATE_OWNER` | No | `douhashi` | テンプレートプロジェクトの owner |
+| `--template-number` | `GHPP_TEMPLATE_NUMBER` | No | `25` | テンプレートプロジェクトの番号 |
+| `--force` | - | No | `false` | 同名プロジェクトが存在しても作成 |
+| `--dry-run` | - | No | `false` | API mutation を呼ばずに resolve のみ実行 |
+
+**出力例:**
+
+```json
+{
+  "dry_run": false,
+  "project": {
+    "id": "PVT_kwDOA...",
+    "number": 12,
+    "url": "https://github.com/users/my-org/projects/12",
+    "title": "My Project"
+  },
+  "linked_repository": "my-org/my-repo",
+  "workflows": [
+    { "name": "Item closed", "number": 1, "enabled": true },
+    { "name": "Auto-add to project", "number": 2, "enabled": false }
+  ],
+  "manual_setup_needed": [
+    "Auto-add to project: this workflow is NOT carried over by copyProjectV2. Open the new project's Workflows page and enable 'Auto-add to project' for the linked repository."
+  ]
+}
+```
+
+**トークンスコープ要件:**
+
+- `project`（write）スコープ: `copyProjectV2` と `linkProjectV2ToRepository` の実行に必須
+- `repo` スコープ: 対象リポジトリの ID 解決に必須
+
+スコープ不足の場合は、エラーメッセージにトークン更新ページの URL（<https://github.com/settings/tokens>）が含まれます。
+
+**テンプレート:**
+
+デフォルトテンプレート `douhashi/25` は、本ツールの想定するステータスフロー（inbox/plan/ready/doing）に対応した workflow 構成を持っています。独自テンプレートを使う場合は `--template-owner` / `--template-number` を指定してください。
+
+> **Note**: GitHub の `copyProjectV2` API は **"Auto-add to project" workflow を新プロジェクトにコピーしません**。出力 JSON の `manual_setup_needed` で案内されるとおり、新プロジェクトの Workflows 画面から手動で有効化してください。
+
 ## 設定
 
 パラメータは **コマンドラインフラグ** または **環境変数** で指定できます。
