@@ -21,39 +21,75 @@ func main() {
 	}
 
 	if len(os.Args) < 2 {
-		fmt.Println("ghpp - GitHub Project Promoter")
-		fmt.Println("Usage: ghpp <command>")
-		fmt.Println("Commands: promote, demote")
+		printUsage()
 		return
 	}
 
-	subArgs := os.Args[2:]
-
 	switch os.Args[1] {
 	case "promote":
-		cfg, err := config.LoadWithArgs(subArgs)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-		client := github.NewClient(cfg.Token)
-		if err := cmd.RunPromote(context.Background(), cfg, client); err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
+		runPromote(os.Args[2:])
 	case "demote":
-		cfg, err := config.LoadWithArgs(subArgs)
+		runDemote(os.Args[2:])
+	case "project":
+		runProject(os.Args[2:])
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
+		os.Exit(1)
+	}
+}
+
+func printUsage() {
+	fmt.Println("ghpp - GitHub Project Promoter")
+	fmt.Println("Usage: ghpp <command> [flags]")
+	fmt.Println("Commands: promote, demote, project init")
+}
+
+func runPromote(args []string) {
+	cfg, err := config.LoadWithArgs(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	client := github.NewClient(cfg.Token)
+	if err := cmd.RunPromote(context.Background(), cfg, client); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runDemote(args []string) {
+	cfg, err := config.LoadWithArgs(args)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	client := github.NewClient(cfg.Token)
+	if err := cmd.RunDemote(context.Background(), cfg, client); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func runProject(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: ghpp project <subcommand> [flags]")
+		fmt.Fprintln(os.Stderr, "Subcommands: init")
+		os.Exit(1)
+	}
+	switch args[0] {
+	case "init":
+		cfg, err := config.LoadProjectInitWithArgs(args[1:])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
 		client := github.NewClient(cfg.Token)
-		if err := cmd.RunDemote(context.Background(), cfg, client); err != nil {
+		if err := cmd.RunProjectInit(context.Background(), cfg, client); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "unknown project subcommand: %s\n", args[0])
 		os.Exit(1)
 	}
 }

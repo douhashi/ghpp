@@ -106,3 +106,35 @@ type DemoteResponse struct {
 	Summary DemoteSummary `json:"summary"`
 	Phases  DemotePhases  `json:"phases"`
 }
+
+// ExistingProject represents a project found by title lookup.
+type ExistingProject struct {
+	ID     string `json:"id"`
+	Number int    `json:"number"`
+	URL    string `json:"url"`
+	Title  string `json:"title"`
+}
+
+// NewProject is the result of a copyProjectV2 call.
+type NewProject struct {
+	ID     string `json:"id"`
+	Number int    `json:"number"`
+	URL    string `json:"url"`
+	Title  string `json:"title"`
+}
+
+// Workflow represents a single workflow on a ProjectV2.
+type Workflow struct {
+	Name    string `json:"name"`
+	Number  int    `json:"number"`
+	Enabled bool   `json:"enabled"`
+}
+
+// ProjectInitResponse is the top-level JSON output of `project init`.
+type ProjectInitResponse struct {
+	DryRun            bool       `json:"dry_run"`
+	Project           NewProject `json:"project"`
+	LinkedRepository  string     `json:"linked_repository"`
+	Workflows         []Workflow `json:"workflows"`
+	ManualSetupNeeded []string   `json:"manual_setup_needed"`
+}
