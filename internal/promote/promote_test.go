@@ -53,13 +53,14 @@ var defaultMeta = &github.ProjectMeta{
 
 func defaultCfg() *config.Config {
 	return &config.Config{
-		Owner:         "testowner",
-		ProjectNumber: 1,
-		StatusInbox:   "Backlog",
-		StatusPlan:    "Plan",
-		StatusReady:   "Ready",
-		StatusDoing:   "In progress",
-		PlanLimit:     0,
+		Owner:              "testowner",
+		ProjectNumber:      1,
+		StatusInbox:        "Backlog",
+		StatusPlan:         "Plan",
+		StatusReady:        "Ready",
+		StatusDoing:        "In progress",
+		PlanLimit:          0,
+		PromotePlanEnabled: true,
 	}
 }
 
@@ -806,5 +807,105 @@ func TestRun_ReadyFieldAlwaysPresent(t *testing.T) {
 	}
 	if resp.Phases.Ready.Results.Skipped == nil {
 		t.Error("phases.ready.results.skipped should not be nil even when disabled")
+	}
+}
+
+func TestPlanPhase_Disabled(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromotePlanEnabled = false
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Backlog 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Backlog 2", URL: "https://github.com/owner/repo/issues/2", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// 機能無効時: plan フェーズで昇格しない
+	if len(resp.Phases.Plan.Results.Promoted) != 0 {
+		t.Errorf("expected 0 plan promoted, got %d", len(resp.Phases.Plan.Results.Promoted))
+	}
+	if len(resp.Phases.Plan.Results.Skipped) != 0 {
+		t.Errorf("expected 0 plan skipped, got %d", len(resp.Phases.Plan.Results.Skipped))
+	}
+	if resp.Phases.Plan.Summary.Promoted != 0 {
+		t.Errorf("plan summary promoted = %d, want 0", resp.Phases.Plan.Summary.Promoted)
+	}
+	// API 呼び出しなし
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+}
+
+func TestPlanPhase_Disabled_ReadyDoingStillRun(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromotePlanEnabled = false
+	cfg.PromoteReadyEnabled = true
+	cfg.PlannedLabel = "planned"
+	// plan フェーズは無効だが、ready フェーズと doing フェーズは通常動作する
+	// Plan + "planned" ラベルのアイテムが ready→doing までカスケード昇格する
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Plan Issue", URL: "https://github.com/owner/repo-cascade/issues/1", Status: "Plan", Labels: []string{"planned"}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// plan フェーズは何もしない
+	if resp.Phases.Plan.Summary.Promoted != 0 {
+		t.Errorf("plan promoted = %d, want 0", resp.Phases.Plan.Summary.Promoted)
+	}
+	// ready フェーズで Plan -> Ready
+	if resp.Phases.Ready.Summary.Promoted != 1 {
+		t.Errorf("ready promoted = %d, want 1", resp.Phases.Ready.Summary.Promoted)
+	}
+	// doing フェーズで Ready -> In progress（カスケード）
+	if resp.Phases.Doing.Summary.Promoted != 1 {
+		t.Errorf("doing promoted = %d, want 1", resp.Phases.Doing.Summary.Promoted)
+	}
+}
+
+func TestPlanPhase_Disabled_DryRun(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromotePlanEnabled = false
+	cfg.DryRun = true
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Backlog 1", URL: "https://github.com/owner/repo/issues/1", Status: "Backlog", Labels: []string{}},
+	}
+
+	_, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// dry-run でも実際の API 呼び出しは 0
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+}
+
+func TestRun_PlanFieldAlwaysPresent(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := defaultCfg()
+	cfg.PromotePlanEnabled = false // 機能無効
+
+	resp, err := Run(context.Background(), cfg, []github.ProjectItem{}, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// 機能無効時も phases.plan が存在すること（nil でないこと）
+	if resp.Phases.Plan.Results.Promoted == nil {
+		t.Error("phases.plan.results.promoted should not be nil even when disabled")
+	}
+	if resp.Phases.Plan.Results.Skipped == nil {
+		t.Error("phases.plan.results.skipped should not be nil even when disabled")
 	}
 }

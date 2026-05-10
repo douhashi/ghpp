@@ -10,6 +10,7 @@ var allEnvKeys = []string{
 	"GHPP_STATUS_INBOX", "GHPP_STATUS_PLAN",
 	"GHPP_STATUS_READY", "GHPP_STATUS_DOING",
 	"GHPP_PLAN_LIMIT",
+	"GHPP_PROMOTE_PLAN_ENABLED",
 	"GHPP_PROMOTE_READY_ENABLED", "GHPP_PLANNED_LABEL",
 }
 
@@ -41,15 +42,16 @@ func TestLoad(t *testing.T) {
 				"GHPP_PLAN_LIMIT":     "5",
 			},
 			want: &Config{
-				Token:         "ghp_test_token",
-				Owner:         "my-org",
-				ProjectNumber: 42,
-				StatusInbox:   "Inbox",
-				StatusPlan:    "Plan",
-				StatusReady:   "Ready",
-				StatusDoing:   "Doing",
-				PlanLimit:     5,
-				PlannedLabel:  DefaultPlannedLabel,
+				Token:              "ghp_test_token",
+				Owner:              "my-org",
+				ProjectNumber:      42,
+				StatusInbox:        "Inbox",
+				StatusPlan:         "Plan",
+				StatusReady:        "Ready",
+				StatusDoing:        "Doing",
+				PlanLimit:          5,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 		{
@@ -60,15 +62,16 @@ func TestLoad(t *testing.T) {
 				"GHPP_PROJECT_NUMBER": "1",
 			},
 			want: &Config{
-				Token:         "ghp_token",
-				Owner:         "owner",
-				ProjectNumber: 1,
-				StatusInbox:   "Backlog",
-				StatusPlan:    "Plan",
-				StatusReady:   "Ready",
-				StatusDoing:   "In progress",
-				PlanLimit:     3,
-				PlannedLabel:  DefaultPlannedLabel,
+				Token:              "ghp_token",
+				Owner:              "owner",
+				ProjectNumber:      1,
+				StatusInbox:        "Backlog",
+				StatusPlan:         "Plan",
+				StatusReady:        "Ready",
+				StatusDoing:        "In progress",
+				PlanLimit:          3,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 		{
@@ -157,15 +160,16 @@ func TestLoadWithArgs(t *testing.T) {
 			},
 			env: map[string]string{},
 			want: &Config{
-				Token:         "flag_token",
-				Owner:         "flag-org",
-				ProjectNumber: 10,
-				StatusInbox:   "FlagInbox",
-				StatusPlan:    "FlagPlan",
-				StatusReady:   "FlagReady",
-				StatusDoing:   "FlagDoing",
-				PlanLimit:     7,
-				PlannedLabel:  DefaultPlannedLabel,
+				Token:              "flag_token",
+				Owner:              "flag-org",
+				ProjectNumber:      10,
+				StatusInbox:        "FlagInbox",
+				StatusPlan:         "FlagPlan",
+				StatusReady:        "FlagReady",
+				StatusDoing:        "FlagDoing",
+				PlanLimit:          7,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 		{
@@ -182,15 +186,16 @@ func TestLoadWithArgs(t *testing.T) {
 				"GHPP_PLAN_LIMIT":     "4",
 			},
 			want: &Config{
-				Token:         "env_token",
-				Owner:         "env-org",
-				ProjectNumber: 20,
-				StatusInbox:   "EnvInbox",
-				StatusPlan:    "EnvPlan",
-				StatusReady:   "EnvReady",
-				StatusDoing:   "EnvDoing",
-				PlanLimit:     4,
-				PlannedLabel:  DefaultPlannedLabel,
+				Token:              "env_token",
+				Owner:              "env-org",
+				ProjectNumber:      20,
+				StatusInbox:        "EnvInbox",
+				StatusPlan:         "EnvPlan",
+				StatusReady:        "EnvReady",
+				StatusDoing:        "EnvDoing",
+				PlanLimit:          4,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 		{
@@ -212,15 +217,16 @@ func TestLoadWithArgs(t *testing.T) {
 				"GHPP_PLAN_LIMIT":     "2",
 			},
 			want: &Config{
-				Token:         "flag_token",
-				Owner:         "flag-org",
-				ProjectNumber: 99,
-				StatusInbox:   "EnvInbox",
-				StatusPlan:    "EnvPlan",
-				StatusReady:   "EnvReady",
-				StatusDoing:   "EnvDoing",
-				PlanLimit:     10,
-				PlannedLabel:  DefaultPlannedLabel,
+				Token:              "flag_token",
+				Owner:              "flag-org",
+				ProjectNumber:      99,
+				StatusInbox:        "EnvInbox",
+				StatusPlan:         "EnvPlan",
+				StatusReady:        "EnvReady",
+				StatusDoing:        "EnvDoing",
+				PlanLimit:          10,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 		{
@@ -259,15 +265,16 @@ func TestLoadWithArgs(t *testing.T) {
 			},
 			env: map[string]string{},
 			want: &Config{
-				Token:         "t",
-				Owner:         "o",
-				ProjectNumber: 5,
-				StatusInbox:   DefaultStatusInbox,
-				StatusPlan:    DefaultStatusPlan,
-				StatusReady:   DefaultStatusReady,
-				StatusDoing:   DefaultStatusDoing,
-				PlanLimit:     DefaultPlanLimit,
-				PlannedLabel:  DefaultPlannedLabel,
+				Token:              "t",
+				Owner:              "o",
+				ProjectNumber:      5,
+				StatusInbox:        DefaultStatusInbox,
+				StatusPlan:         DefaultStatusPlan,
+				StatusReady:        DefaultStatusReady,
+				StatusDoing:        DefaultStatusDoing,
+				PlanLimit:          DefaultPlanLimit,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 		{
@@ -280,17 +287,18 @@ func TestLoadWithArgs(t *testing.T) {
 			},
 			env: map[string]string{},
 			want: &Config{
-				Token:          "tok",
-				Owner:          "owner",
-				ProjectNumber:  1,
-				StatusInbox:    DefaultStatusInbox,
-				StatusPlan:     DefaultStatusPlan,
-				StatusReady:    DefaultStatusReady,
-				StatusDoing:    DefaultStatusDoing,
-				PlanLimit:      DefaultPlanLimit,
-				StaleThreshold: DefaultStaleThreshold,
-				DryRun:         true,
-				PlannedLabel:   DefaultPlannedLabel,
+				Token:              "tok",
+				Owner:              "owner",
+				ProjectNumber:      1,
+				StatusInbox:        DefaultStatusInbox,
+				StatusPlan:         DefaultStatusPlan,
+				StatusReady:        DefaultStatusReady,
+				StatusDoing:        DefaultStatusDoing,
+				PlanLimit:          DefaultPlanLimit,
+				StaleThreshold:     DefaultStaleThreshold,
+				DryRun:             true,
+				PromotePlanEnabled: true,
+				PlannedLabel:       DefaultPlannedLabel,
 			},
 		},
 	}
@@ -347,6 +355,9 @@ func assertConfig(t *testing.T, got, want *Config) {
 	if got.DryRun != want.DryRun {
 		t.Errorf("DryRun = %v, want %v", got.DryRun, want.DryRun)
 	}
+	if got.PromotePlanEnabled != want.PromotePlanEnabled {
+		t.Errorf("PromotePlanEnabled = %v, want %v", got.PromotePlanEnabled, want.PromotePlanEnabled)
+	}
 	if got.PromoteReadyEnabled != want.PromoteReadyEnabled {
 		t.Errorf("PromoteReadyEnabled = %v, want %v", got.PromoteReadyEnabled, want.PromoteReadyEnabled)
 	}
@@ -383,6 +394,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				StatusDoing:         DefaultStatusDoing,
 				PlanLimit:           DefaultPlanLimit,
 				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: true,
 				PlannedLabel:        "planned",
 			},
@@ -408,6 +420,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				StatusDoing:         DefaultStatusDoing,
 				PlanLimit:           DefaultPlanLimit,
 				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: true,
 				PlannedLabel:        "my-label",
 			},
@@ -435,6 +448,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				StatusDoing:         DefaultStatusDoing,
 				PlanLimit:           DefaultPlanLimit,
 				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        "flag-label",
 			},
@@ -457,6 +471,7 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				StatusDoing:         DefaultStatusDoing,
 				PlanLimit:           DefaultPlanLimit,
 				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        DefaultPlannedLabel,
 			},
@@ -505,9 +520,178 @@ func TestLoadWithArgs_PromoteReadyEnabled(t *testing.T) {
 				StatusDoing:         DefaultStatusDoing,
 				PlanLimit:           DefaultPlanLimit,
 				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
 				PromoteReadyEnabled: false,
 				PlannedLabel:        "custom-label",
 			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clearEnv(t)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			got, err := LoadWithArgs(tt.args)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			assertConfig(t, got, tt.want)
+		})
+	}
+}
+
+func TestLoadWithArgs_PromotePlanEnabled(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		env     map[string]string
+		want    *Config
+		wantErr bool
+	}{
+		{
+			name: "default: promote-plan-enabled=true",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+			},
+		},
+		{
+			name: "--promote-plan-enabled=false flag sets field to false",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--promote-plan-enabled=false",
+			},
+			env: map[string]string{},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  false,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+			},
+		},
+		{
+			name: "GHPP_PROMOTE_PLAN_ENABLED=false env var sets field to false",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{
+				"GHPP_PROMOTE_PLAN_ENABLED": "false",
+			},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  false,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+			},
+		},
+		{
+			name: "GHPP_PROMOTE_PLAN_ENABLED=true env var sets field to true",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{
+				"GHPP_PROMOTE_PLAN_ENABLED": "true",
+			},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  true,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+			},
+		},
+		{
+			name: "flag overrides env var for promote-plan-enabled",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+				"--promote-plan-enabled=false",
+			},
+			env: map[string]string{
+				"GHPP_PROMOTE_PLAN_ENABLED": "true",
+			},
+			want: &Config{
+				Token:               "tok",
+				Owner:               "owner",
+				ProjectNumber:       1,
+				StatusInbox:         DefaultStatusInbox,
+				StatusPlan:          DefaultStatusPlan,
+				StatusReady:         DefaultStatusReady,
+				StatusDoing:         DefaultStatusDoing,
+				PlanLimit:           DefaultPlanLimit,
+				StaleThreshold:      DefaultStaleThreshold,
+				PromotePlanEnabled:  false,
+				PromoteReadyEnabled: false,
+				PlannedLabel:        DefaultPlannedLabel,
+			},
+		},
+		{
+			name: "GHPP_PROMOTE_PLAN_ENABLED invalid value returns error",
+			args: []string{
+				"--token", "tok",
+				"--owner", "owner",
+				"--project-number", "1",
+			},
+			env: map[string]string{
+				"GHPP_PROMOTE_PLAN_ENABLED": "notabool",
+			},
+			wantErr: true,
 		},
 	}
 

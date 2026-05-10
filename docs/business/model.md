@@ -24,6 +24,15 @@ Issue を `inbox` から `plan` ステータスに昇格させる。
 - Plan 状態が PlanLimit 未満の場合は `PlanLimit - 現在の Plan 数` の件数だけ昇格する（空き枠を埋める）
 - Ready / Doing の Issue 数はカウント対象外
 
+### 設定
+
+| フラグ | 環境変数 | デフォルト | 説明 |
+|-------|---------|-----------|------|
+| `--promote-plan-enabled` | `GHPP_PROMOTE_PLAN_ENABLED` | `true` | 計画フェーズを有効化する |
+| `--plan-limit` | `GHPP_PLAN_LIMIT` | `3` | Plan カラムの WIP 上限 |
+
+- `--promote-plan-enabled=false` を指定すると計画フェーズはスキップされる（出力 JSON の `phases.plan` は空状態で残る）
+
 ## 2. 準備フェーズ（plan → ready）
 
 Issue を `plan` から `ready` ステータスに昇格させる。**デフォルト無効**。

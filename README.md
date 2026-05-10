@@ -56,7 +56,7 @@ ghpp promote --status-inbox "Todo" --status-plan "Planned"
 
 **動作の詳細:**
 
-1. **計画フェーズ** — `inbox` ステータスの Issue を `plan` に昇格。`--plan-limit` で指定された上限数まで昇格します。
+1. **計画フェーズ** — `inbox` ステータスの Issue を `plan` に昇格。`--plan-limit` で指定された上限数まで昇格します。`--promote-plan-enabled=false` を指定すると計画フェーズの自動昇格は実行されません。人手や別フローで Plan へ積む運用に向けた opt-out オプションです。
 2. **実行フェーズ** — `ready` ステータスの Issue を `doing` に昇格。同一リポジトリで既に `doing` の Issue がある場合はスキップされます。
 
 **出力例:**
@@ -196,6 +196,9 @@ ghpp project init --title "My Project" --force
 | `--status-ready` | `GHPP_STATUS_READY` | No | `Ready` | ready に対応するステータス名 |
 | `--status-doing` | `GHPP_STATUS_DOING` | No | `In progress` | doing に対応するステータス名 |
 | `--plan-limit` | `GHPP_PLAN_LIMIT` | No | `3` | 計画フェーズの昇格上限数 |
+| `--promote-plan-enabled` | `GHPP_PROMOTE_PLAN_ENABLED` | No | `true` | 計画フェーズ (backlog→plan) の自動昇格を有効化 |
+| `--promote-ready-enabled` | `GHPP_PROMOTE_READY_ENABLED` | No | `false` | 準備フェーズ (plan→ready) の自動昇格を有効化（ラベルゲート） |
+| `--planned-label` | `GHPP_PLANNED_LABEL` | No | `planned` | 準備フェーズの昇格トリガーとなるラベル名 |
 
 > **セキュリティに関する注意**: `--token` でトークンを渡すと、プロセス一覧やシェル履歴にトークンが残る可能性があります。環境変数 `GH_TOKEN` または `.env` ファイルでの指定を推奨します。
 
