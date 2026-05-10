@@ -60,7 +60,14 @@ func defaultCfg() *config.Config {
 		StatusDoing:    "In progress",
 		StaleThreshold: 2 * time.Hour,
 		DryRun:         false,
+		Workflow:       config.WorkflowFull,
 	}
+}
+
+func simpleCfg() *config.Config {
+	cfg := defaultCfg()
+	cfg.Workflow = config.WorkflowSimple
+	return cfg
 }
 
 // staleTime は Status 遷移から stale 閾値（2h）を超えた時刻を返す。
@@ -244,5 +251,91 @@ func TestRun_FetchMetaError(t *testing.T) {
 	_, err := Run(context.Background(), cfg, nil, md)
 	if err == nil {
 		t.Fatal("expected error but got nil")
+	}
+}
+
+// TestDoingPhase_Simple_StaleItemDemotedToBacklog: simple モードで stale な doing が Backlog に降格
+func TestDoingPhase_Simple_StaleItemDemotedToBacklog(t *testing.T) {
+	md := &mockDemoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Stale Doing", URL: "https://github.com/owner/repo/issues/1", Status: "In progress", UpdatedAt: staleTime(), Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	demoted := resp.Phases.Doing.Results.Demoted
+	if len(demoted) != 1 {
+		t.Fatalf("expected 1 demoted, got %d", len(demoted))
+	}
+	if demoted[0].FromStatus != "In progress" {
+		t.Errorf("FromStatus = %q, want %q", demoted[0].FromStatus, "In progress")
+	}
+	if demoted[0].ToStatus != "Backlog" {
+		t.Errorf("ToStatus = %q, want %q", demoted[0].ToStatus, "Backlog")
+	}
+	if len(md.updated) != 1 {
+		t.Fatalf("expected 1 UpdateItemStatus call, got %d", len(md.updated))
+	}
+	if md.updated[0].StatusName != "Backlog" {
+		t.Errorf("UpdateItemStatus called with %q, want %q", md.updated[0].StatusName, "Backlog")
+	}
+}
+
+// TestDoingPhase_Simple_FreshItemSkipped: simple モードでも fresh はスキップ
+func TestDoingPhase_Simple_FreshItemSkipped(t *testing.T) {
+	md := &mockDemoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Fresh Doing", URL: "https://github.com/owner/repo/issues/1", Status: "In progress", UpdatedAt: freshTime(), Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(resp.Phases.Doing.Results.Demoted) != 0 {
+		t.Fatalf("expected 0 demoted, got %d", len(resp.Phases.Doing.Results.Demoted))
+	}
+	if len(resp.Phases.Doing.Results.Skipped) != 1 {
+		t.Fatalf("expected 1 skipped, got %d", len(resp.Phases.Doing.Results.Skipped))
+	}
+	if len(md.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(md.updated))
+	}
+}
+
+// TestDoingPhase_Simple_DryRun: simple モードでも DryRun が機能
+func TestDoingPhase_Simple_DryRun(t *testing.T) {
+	md := &mockDemoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	cfg.DryRun = true
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Stale Doing", URL: "https://github.com/owner/repo/issues/1", Status: "In progress", UpdatedAt: staleTime(), Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, md)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(md.updated) != 0 {
+		t.Errorf("dry-run: expected 0 UpdateItemStatus calls, got %d", len(md.updated))
+	}
+	// dry-run でも demoted に記録される
+	demoted := resp.Phases.Doing.Results.Demoted
+	if len(demoted) != 1 {
+		t.Fatalf("expected 1 demoted (dry-run), got %d", len(demoted))
+	}
+	// ToStatus は Backlog
+	if demoted[0].ToStatus != "Backlog" {
+		t.Errorf("ToStatus = %q, want %q", demoted[0].ToStatus, "Backlog")
+	}
+	if !resp.DryRun {
+		t.Error("expected DryRun = true, got false")
 	}
 }

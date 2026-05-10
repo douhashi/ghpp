@@ -1,6 +1,19 @@
 # Promote ライフサイクル
 
-## ステータスフロー
+## ワークフローモード
+
+GHPP は2つのワークフローモードを提供する。
+
+| モード | 自動遷移 | 使用するステータス | デフォルト |
+|---|---|---|---|
+| `full` | `inbox → plan → ready → doing` の3段階 | inbox / plan / ready / doing | ✓ |
+| `simple` | `inbox → doing` の1段階 | inbox / doing |  |
+
+`--workflow` フラグまたは `GHPP_WORKFLOW` 環境変数で切り替える。
+
+> **以下「1. 計画フェーズ」「2. 準備フェーズ」「3. 実行フェーズ」は `full` モードの仕様**。`simple` モードについては末尾の「Simple モード仕様」を参照。
+
+## ステータスフロー（full モード）
 
 ```
 inbox → plan → ready → doing
@@ -172,3 +185,46 @@ demote コマンドは stale（更新から一定時間経過）なアイテム�
 
 - `phases.doing` は常にキーが存在する（0件でも省略されない）
 - `results.demoted` / `results.skipped` は0件の場合 `[]`（`null` ではない）
+
+> **simple モードでの降格先は `Backlog`（=inbox）**。降格先以外の挙動（stale 判定など）は `full` モードと同一。
+
+---
+
+## Simple モード仕様
+
+`--workflow=simple` を指定すると、`inbox` と `doing` の2ステータスのみで運用するモードに切り替わる。
+
+### 自動遷移
+
+- promote: `Backlog → In progress`（plan / ready フェーズはスキップ）
+- demote: stale な doing は `Backlog` に降格
+
+### フラグの扱い
+
+| フラグ | simple モードでの扱い |
+|---|---|
+| `--promote-plan-enabled` | silently 無視（warning は出さない） |
+| `--promote-ready-enabled` | silently 無視（warning は出さない） |
+| `--planned-label` | silently 無視（warning は出さない） |
+| `--plan-limit` | silently 無視（plan フェーズが走らないため） |
+| `--stale-threshold` | full モードと同一の挙動 |
+| `--dry-run` | full モードと同一の挙動 |
+
+### 制約
+
+- 「リポジトリ単位で1つまで」ルールは維持される（doing に既存アイテムがあるリポジトリの Backlog はスキップされる）
+
+### 出力 JSON
+
+`phases.plan` / `phases.ready` キーは省略されず、`promoted` / `skipped` がそれぞれ空配列で出力される。
+これにより full / simple 両モードで同一スキーマを保つ。
+
+```json
+{
+  "phases": {
+    "plan":  { "summary": { "promoted": 0, "skipped": 0, "total": 0 }, "results": { "promoted": [], "skipped": [] } },
+    "ready": { "summary": { "promoted": 0, "skipped": 0, "total": 0 }, "results": { "promoted": [], "skipped": [] } },
+    "doing": { "summary": { "promoted": 1, "skipped": 0, "total": 1 }, "results": { "promoted": [...], "skipped": [] } }
+  }
+}
+```

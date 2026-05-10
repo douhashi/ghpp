@@ -5,16 +5,31 @@ GitHub Projects をベースにした、プロジェクト進行ワークフロ�
 
 ## ステータスフロー
 
+GHPP は2つのワークフローモードを提供します。
+
+### `full` モード（デフォルト）
+
 ```
 inbox → plan → ready → doing
 ```
 
-GHPP は上記フローのうち、以下2つの昇格を自動化します。
-
 | フェーズ | 遷移 | 制約 |
 |---|---|---|
 | **計画フェーズ** | `inbox` → `plan` | 一度に昇格する個数に上限あり（デフォルト: 3） |
+| **準備フェーズ** | `plan` → `ready` | 指定ラベル付きの Issue のみ（デフォルト無効） |
 | **実行フェーズ** | `ready` → `doing` | リポジトリ単位で1つまで |
+
+### `simple` モード
+
+```
+inbox → doing
+```
+
+| フェーズ | 遷移 | 制約 |
+|---|---|---|
+| **実行フェーズ** | `inbox` → `doing` | リポジトリ単位で1つまで |
+
+`--workflow=simple`（または `GHPP_WORKFLOW=simple`）で切り替え。Plan / Ready ステータスは使用しません。
 
 ## インストール
 
@@ -52,6 +67,9 @@ ghpp promote --plan-limit 5
 
 # ステータス名をカスタマイズ
 ghpp promote --status-inbox "Todo" --status-plan "Planned"
+
+# simple モード（Backlog → In progress の1段階のみ）
+ghpp promote --workflow simple
 ```
 
 **動作の詳細:**
@@ -199,6 +217,7 @@ ghpp project init --title "My Project" --force
 | `--promote-plan-enabled` | `GHPP_PROMOTE_PLAN_ENABLED` | No | `true` | 計画フェーズ (backlog→plan) の自動昇格を有効化 |
 | `--promote-ready-enabled` | `GHPP_PROMOTE_READY_ENABLED` | No | `false` | 準備フェーズ (plan→ready) の自動昇格を有効化（ラベルゲート） |
 | `--planned-label` | `GHPP_PLANNED_LABEL` | No | `planned` | 準備フェーズの昇格トリガーとなるラベル名 |
+| `--workflow` | `GHPP_WORKFLOW` | No | `full` | ワークフローモード（`full` / `simple`）。`simple` は Backlog と In progress の2状態のみで運用 |
 
 > **セキュリティに関する注意**: `--token` でトークンを渡すと、プロセス一覧やシェル履歴にトークンが残る可能性があります。環境変数 `GH_TOKEN` または `.env` ファイルでの指定を推奨します。
 

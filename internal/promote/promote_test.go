@@ -61,7 +61,14 @@ func defaultCfg() *config.Config {
 		StatusDoing:        "In progress",
 		PlanLimit:          0,
 		PromotePlanEnabled: true,
+		Workflow:           config.WorkflowFull,
 	}
+}
+
+func simpleCfg() *config.Config {
+	cfg := defaultCfg()
+	cfg.Workflow = config.WorkflowSimple
+	return cfg
 }
 
 func TestPlanPhase_InboxToPlan(t *testing.T) {
@@ -907,5 +914,228 @@ func TestRun_PlanFieldAlwaysPresent(t *testing.T) {
 	}
 	if resp.Phases.Plan.Results.Skipped == nil {
 		t.Error("phases.plan.results.skipped should not be nil even when disabled")
+	}
+}
+
+// TestRun_Simple_BacklogToDoing: simple モードで Backlog の item が直接 In progress に昇格する
+func TestRun_Simple_BacklogToDoing(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Backlog Issue", URL: "https://github.com/owner/repo-a/issues/1", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Doing.Results.Promoted
+	if len(promoted) != 1 {
+		t.Fatalf("expected 1 promoted, got %d", len(promoted))
+	}
+	if promoted[0].Item.ID != "1" {
+		t.Errorf("promoted item ID = %q, want %q", promoted[0].Item.ID, "1")
+	}
+	if promoted[0].ToStatus != "In progress" {
+		t.Errorf("ToStatus = %q, want %q", promoted[0].ToStatus, "In progress")
+	}
+	if promoted[0].Key != "doing-owner-repo-a-1" {
+		t.Errorf("Key = %q, want %q", promoted[0].Key, "doing-owner-repo-a-1")
+	}
+	// UpdateItemStatus が "In progress" で呼ばれること
+	if len(mp.updated) != 1 {
+		t.Fatalf("expected 1 UpdateItemStatus call, got %d", len(mp.updated))
+	}
+	if mp.updated[0].StatusName != "In progress" {
+		t.Errorf("UpdateItemStatus called with %q, want %q", mp.updated[0].StatusName, "In progress")
+	}
+	if mp.updated[0].ItemID != "1" {
+		t.Errorf("UpdateItemStatus called with itemID %q, want %q", mp.updated[0].ItemID, "1")
+	}
+}
+
+// TestRun_Simple_PlanReadySkipped: simple モードで Plan/Ready の item は doing フェーズの取り込み対象外
+func TestRun_Simple_PlanReadySkipped(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	items := []github.ProjectItem{
+		{ID: "p", Title: "Plan", URL: "https://github.com/owner/repo-a/issues/1", Status: "Plan", Labels: []string{"planned"}},
+		{ID: "r", Title: "Ready", URL: "https://github.com/owner/repo-b/issues/1", Status: "Ready", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(resp.Phases.Doing.Results.Promoted) != 0 {
+		t.Errorf("expected 0 promoted, got %d", len(resp.Phases.Doing.Results.Promoted))
+	}
+	if len(resp.Phases.Doing.Results.Skipped) != 0 {
+		t.Errorf("expected 0 skipped, got %d", len(resp.Phases.Doing.Results.Skipped))
+	}
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+}
+
+// TestRun_Simple_SameRepoLimit: simple モードでも「1 リポジトリ1件」ルールが効く
+func TestRun_Simple_SameRepoLimit(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Backlog 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Backlog 2", URL: "https://github.com/owner/repo-a/issues/2", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	promoted := resp.Phases.Doing.Results.Promoted
+	skipped := resp.Phases.Doing.Results.Skipped
+	if len(promoted) != 1 {
+		t.Fatalf("expected 1 promoted, got %d", len(promoted))
+	}
+	if len(skipped) != 1 {
+		t.Fatalf("expected 1 skipped, got %d", len(skipped))
+	}
+	if skipped[0].Reason != "repository already has doing issue" {
+		t.Errorf("Reason = %q, want %q", skipped[0].Reason, "repository already has doing issue")
+	}
+}
+
+// TestRun_Simple_ExistingDoing: simple モードで既に doing 中の repo の Backlog はスキップされる
+func TestRun_Simple_ExistingDoing(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	items := []github.ProjectItem{
+		{ID: "d", Title: "Doing", URL: "https://github.com/owner/repo-a/issues/1", Status: "In progress", Labels: []string{}},
+		{ID: "b", Title: "Backlog", URL: "https://github.com/owner/repo-a/issues/2", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(resp.Phases.Doing.Results.Promoted) != 0 {
+		t.Errorf("expected 0 promoted, got %d", len(resp.Phases.Doing.Results.Promoted))
+	}
+	skipped := resp.Phases.Doing.Results.Skipped
+	if len(skipped) != 1 {
+		t.Fatalf("expected 1 skipped, got %d", len(skipped))
+	}
+	if skipped[0].Item.ID != "b" {
+		t.Errorf("skipped item ID = %q, want %q", skipped[0].Item.ID, "b")
+	}
+}
+
+// TestRun_Simple_PromoteFlagsIgnored: simple モードで promote-plan-enabled / promote-ready-enabled の値が挙動に影響しない
+func TestRun_Simple_PromoteFlagsIgnored(t *testing.T) {
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Backlog", URL: "https://github.com/owner/repo-a/issues/1", Status: "Backlog", Labels: []string{"planned"}},
+		{ID: "2", Title: "Plan", URL: "https://github.com/owner/repo-b/issues/1", Status: "Plan", Labels: []string{"planned"}},
+	}
+
+	// パターン1: PromotePlanEnabled=true, PromoteReadyEnabled=false
+	mp1 := &mockPromoter{meta: defaultMeta}
+	cfg1 := simpleCfg()
+	cfg1.PromotePlanEnabled = true
+	cfg1.PromoteReadyEnabled = false
+	cfg1.PlannedLabel = "planned"
+	resp1, err := Run(context.Background(), cfg1, items, mp1)
+	if err != nil {
+		t.Fatalf("unexpected error (pattern 1): %v", err)
+	}
+
+	// パターン2: PromotePlanEnabled=false, PromoteReadyEnabled=true
+	mp2 := &mockPromoter{meta: defaultMeta}
+	cfg2 := simpleCfg()
+	cfg2.PromotePlanEnabled = false
+	cfg2.PromoteReadyEnabled = true
+	cfg2.PlannedLabel = "planned"
+	resp2, err := Run(context.Background(), cfg2, items, mp2)
+	if err != nil {
+		t.Fatalf("unexpected error (pattern 2): %v", err)
+	}
+
+	// 両パターンで結果が同一であること（フラグが silently 無視される）
+	if resp1.Summary != resp2.Summary {
+		t.Errorf("summary differs: %+v vs %+v", resp1.Summary, resp2.Summary)
+	}
+	if len(mp1.updated) != len(mp2.updated) {
+		t.Errorf("UpdateItemStatus call count differs: %d vs %d", len(mp1.updated), len(mp2.updated))
+	}
+	// どちらのパターンでも Backlog のみ昇格対象（Plan は触らない）
+	if len(mp1.updated) != 1 {
+		t.Errorf("pattern 1: expected 1 update call, got %d", len(mp1.updated))
+	}
+	if mp1.updated[0].ItemID != "1" {
+		t.Errorf("pattern 1: updated ItemID = %q, want %q", mp1.updated[0].ItemID, "1")
+	}
+}
+
+// TestRun_Simple_DryRun: simple モードでも DryRun が機能する
+func TestRun_Simple_DryRun(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := simpleCfg()
+	cfg.DryRun = true
+	items := []github.ProjectItem{
+		{ID: "1", Title: "Backlog 1", URL: "https://github.com/owner/repo-a/issues/1", Status: "Backlog", Labels: []string{}},
+		{ID: "2", Title: "Backlog 2", URL: "https://github.com/owner/repo-b/issues/1", Status: "Backlog", Labels: []string{}},
+	}
+
+	resp, err := Run(context.Background(), cfg, items, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(mp.updated) != 0 {
+		t.Errorf("expected 0 UpdateItemStatus calls, got %d", len(mp.updated))
+	}
+	if len(resp.Phases.Doing.Results.Promoted) != 2 {
+		t.Errorf("expected 2 promoted in output, got %d", len(resp.Phases.Doing.Results.Promoted))
+	}
+	if !resp.DryRun {
+		t.Error("expected DryRun = true, got false")
+	}
+}
+
+// TestRun_Simple_PlanReadyEmptyResults: simple モードでも phases.plan / phases.ready は空配列で存在する
+func TestRun_Simple_PlanReadyEmptyResults(t *testing.T) {
+	mp := &mockPromoter{meta: defaultMeta}
+	cfg := simpleCfg()
+
+	resp, err := Run(context.Background(), cfg, []github.ProjectItem{}, mp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Phases.Plan.Results.Promoted == nil {
+		t.Error("phases.plan.results.promoted should not be nil")
+	}
+	if resp.Phases.Plan.Results.Skipped == nil {
+		t.Error("phases.plan.results.skipped should not be nil")
+	}
+	if resp.Phases.Ready.Results.Promoted == nil {
+		t.Error("phases.ready.results.promoted should not be nil")
+	}
+	if resp.Phases.Ready.Results.Skipped == nil {
+		t.Error("phases.ready.results.skipped should not be nil")
+	}
+	if len(resp.Phases.Plan.Results.Promoted) != 0 {
+		t.Errorf("plan promoted len = %d, want 0", len(resp.Phases.Plan.Results.Promoted))
+	}
+	if len(resp.Phases.Plan.Results.Skipped) != 0 {
+		t.Errorf("plan skipped len = %d, want 0", len(resp.Phases.Plan.Results.Skipped))
+	}
+	if len(resp.Phases.Ready.Results.Promoted) != 0 {
+		t.Errorf("ready promoted len = %d, want 0", len(resp.Phases.Ready.Results.Promoted))
+	}
+	if len(resp.Phases.Ready.Results.Skipped) != 0 {
+		t.Errorf("ready skipped len = %d, want 0", len(resp.Phases.Ready.Results.Skipped))
 	}
 }

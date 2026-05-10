@@ -16,6 +16,32 @@ func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, pr
 		return nil, fmt.Errorf("failed to fetch project meta: %w", err)
 	}
 
+	// simple モード: Backlog → In progress に直接昇格。plan / ready フェーズはスキップする
+	if cfg.Workflow == config.WorkflowSimple {
+		doingResults, err := doingPhase(ctx, cfg, items, meta, promoter, cfg.StatusInbox)
+		if err != nil {
+			return nil, fmt.Errorf("doing phase failed: %w", err)
+		}
+
+		planPhaseResult := buildPhaseResult(github.PhaseResults{})
+		readyPhaseResult := buildPhaseResult(github.PhaseResults{})
+		doingPhaseResult := buildPhaseResult(doingResults)
+
+		return &github.PromoteResponse{
+			DryRun: cfg.DryRun,
+			Summary: github.PhaseSummary{
+				Promoted: doingPhaseResult.Summary.Promoted,
+				Skipped:  doingPhaseResult.Summary.Skipped,
+				Total:    doingPhaseResult.Summary.Total,
+			},
+			Phases: github.PromotePhases{
+				Plan:  planPhaseResult,
+				Ready: readyPhaseResult,
+				Doing: doingPhaseResult,
+			},
+		}, nil
+	}
+
 	planResults, err := planPhase(ctx, cfg, items, meta, promoter)
 	if err != nil {
 		return nil, fmt.Errorf("plan phase failed: %w", err)
@@ -33,7 +59,7 @@ func Run(ctx context.Context, cfg *config.Config, items []github.ProjectItem, pr
 	itemsAfterReady := applyPromotions(itemsAfterPlan, readyResults.Promoted, cfg.StatusReady)
 
 	// itemsAfterReady には ready フェーズで昇格済みのアイテムも Ready ステータスとして含まれており、doing フェーズでカスケード昇格される
-	doingResults, err := doingPhase(ctx, cfg, itemsAfterReady, meta, promoter)
+	doingResults, err := doingPhase(ctx, cfg, itemsAfterReady, meta, promoter, cfg.StatusReady)
 	if err != nil {
 		return nil, fmt.Errorf("doing phase failed: %w", err)
 	}
@@ -187,7 +213,7 @@ func hasLabel(labels []string, target string) bool {
 	return false
 }
 
-func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, promoter github.ItemPromoter) (github.PhaseResults, error) {
+func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, promoter github.ItemPromoter, sourceStatus string) (github.PhaseResults, error) {
 	var results github.PhaseResults
 
 	// Build set of repos that already have a doing item.
@@ -203,7 +229,7 @@ func doingPhase(ctx context.Context, cfg *config.Config, items []github.ProjectI
 	}
 
 	for _, item := range items {
-		if item.Status != cfg.StatusReady {
+		if item.Status != sourceStatus {
 			continue
 		}
 

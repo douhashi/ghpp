@@ -36,9 +36,12 @@
 
 ```
 ghpp promote [flags]
+  --workflow <full|simple>      ワークフローモード (env: GHPP_WORKFLOW, default: full)
   --promote-ready-enabled       plan→ready自動昇格を有効化する (env: GHPP_PROMOTE_READY_ENABLED, default: false)
   --planned-label <label>       plan→ready昇格トリガーとなるラベル名 (env: GHPP_PLANNED_LABEL, default: planned)
 ```
+
+`--workflow=simple` を指定すると Backlog → In progress の1段階のみで運用する。詳細は `docs/business/model.md` の「Simple モード仕様」を参照。
 
 ### demote
 
@@ -46,9 +49,12 @@ ghpp promote [flags]
 
 ```
 ghpp demote [flags]
+  --workflow <full|simple>      ワークフローモード (env: GHPP_WORKFLOW, default: full)
   --stale-threshold <duration>  降格対象とみなす滞留期間 (env: GHPP_STALE_THRESHOLD, default: 2h)
   --dry-run                     実際には更新せずに降格対象を表示する
 ```
+
+`--workflow=simple` を指定した場合、stale な doing は `Backlog`（inbox）に降格する（`full` モードでは `Ready`）。
 
 ## ビルド・実行
 
