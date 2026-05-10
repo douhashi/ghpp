@@ -98,6 +98,10 @@ func buildPhaseResult(results github.PhaseResults) github.PhaseResult {
 func planPhase(ctx context.Context, cfg *config.Config, items []github.ProjectItem, meta *github.ProjectMeta, promoter github.ItemPromoter) (github.PhaseResults, error) {
 	var results github.PhaseResults
 
+	if !cfg.PromotePlanEnabled {
+		return results, nil
+	}
+
 	// Plan カラムの現在の件数をカウントする（WIP 上限の基準）
 	currentPlanCount := 0
 	for _, item := range items {

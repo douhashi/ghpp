@@ -39,6 +39,7 @@ type Config struct {
 	PlanLimit           int
 	StaleThreshold      time.Duration
 	DryRun              bool
+	PromotePlanEnabled  bool
 	PromoteReadyEnabled bool
 	PlannedLabel        string
 }
@@ -65,6 +66,7 @@ func LoadWithArgs(args []string) (*Config, error) {
 	planLimit := fs.String("plan-limit", "", "Plan promotion limit (env: GHPP_PLAN_LIMIT)")
 	staleThreshold := fs.String("stale-threshold", "", "Stale threshold duration for demote (env: GHPP_STALE_THRESHOLD, default: 2h)")
 	dryRun := fs.Bool("dry-run", false, "Dry-run mode: do not actually update items")
+	promotePlanEnabled := fs.Bool("promote-plan-enabled", true, "Enable backlog→plan auto-promotion (env: GHPP_PROMOTE_PLAN_ENABLED, default: true)")
 	promoteReadyEnabled := fs.Bool("promote-ready-enabled", false, "Enable plan→ready auto-promotion (env: GHPP_PROMOTE_READY_ENABLED, default: false)")
 	plannedLabel := fs.String("planned-label", "", "Label name that triggers plan→ready promotion (env: GHPP_PLANNED_LABEL, default: planned)")
 
@@ -139,6 +141,18 @@ func LoadWithArgs(args []string) (*Config, error) {
 	// Resolve dry-run (flag only, no env var)
 	resolvedDryRun := *dryRun
 
+	// Resolve promote-plan-enabled (flag > env > default true)
+	resolvedPromotePlanEnabled := *promotePlanEnabled
+	if !flagSet["promote-plan-enabled"] {
+		envVal := os.Getenv("GHPP_PROMOTE_PLAN_ENABLED")
+		if envVal != "" {
+			resolvedPromotePlanEnabled, err = strconv.ParseBool(envVal)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse GHPP_PROMOTE_PLAN_ENABLED: %w", err)
+			}
+		}
+	}
+
 	// Resolve promote-ready-enabled (flag > env > default false)
 	resolvedPromoteReadyEnabled := *promoteReadyEnabled
 	if !flagSet["promote-ready-enabled"] {
@@ -170,6 +184,7 @@ func LoadWithArgs(args []string) (*Config, error) {
 		PlanLimit:           resolvedPlanLimit,
 		StaleThreshold:      resolvedStaleThreshold,
 		DryRun:              resolvedDryRun,
+		PromotePlanEnabled:  resolvedPromotePlanEnabled,
 		PromoteReadyEnabled: resolvedPromoteReadyEnabled,
 		PlannedLabel:        resolvedPlannedLabel,
 	}, nil
